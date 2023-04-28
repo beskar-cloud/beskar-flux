@@ -1,0 +1,203 @@
+kind: HelmRelease
+apiVersion: helm.toolkit.fluxcd.io/v2beta1
+metadata:
+  name: neutron
+  namespace: openstack
+spec:
+  interval: 5m
+  timeout: 15m
+  dependsOn:
+  - name: "cinder"
+    namespace: "openstack"
+  targetNamespace: openstack
+  storageNamespace: openstack
+  install:
+    disableWait: true
+#    disableWaitForJobs: true
+  upgrade:
+    disableWait: true
+#    disableWaitForJobs: true
+  chart:
+    spec:
+      chart: neutron
+      sourceRef:
+        kind: GitRepository
+        name: openstack-helm
+        namespace: default 
+      interval: 1m
+  values:
+    images:
+      tags:
+        bootstrap: &heat-image hemsonawane/heat:latest-zed-ubuntu_focal
+        test: docker.io/xrally/xrally-openstack:2.0.0
+        purge_test: docker.io/openstackhelm/ospurge:latest
+        db_init: *heat-image
+        neutron_db_sync: &neutron-image docker.itera.io/openstackhelm/neutron:latest-zed-ubuntu_focal_fwaas
+        db_drop: *heat-image
+        rabbit_init: docker.io/rabbitmq:3.9-management
+        ks_user: *heat-image
+        ks_service: *heat-image
+        ks_endpoints: *heat-image
+        neutron_server: *neutron-image
+        neutron_dhcp: *neutron-image
+        neutron_metadata: *neutron-image
+        neutron_l3: *neutron-image
+        neutron_l2gw: *neutron-image
+        neutron_openvswitch_agent: *neutron-image
+        neutron_linuxbridge_agent: *neutron-image
+        neutron_bagpipe_bgp: *neutron-image
+        neutron_ironic_agent: *neutron-image
+        neutron_netns_cleanup_cron: *neutron-image
+        dep_check: quay.io/airshipit/kubernetes-entrypoint:v1.0.0
+        image_repo_sync: docker.io/docker:17.07.0
+      pull_policy: "Always"
+    endpoints:
+      identity:
+        auth:
+          admin:
+            password: grijgfreiefdf
+          neutron:
+            password: fPSHADhcaRfhyWOepXqc
+          nova:
+            password: S2gQorl5qVc4FIWi8FbH
+          test:
+            password: RXVCsTdRLa6918L5mJ7d
+      oslo_db:
+        auth:
+          admin:
+            password: hQrCbbmZQqGJbfedePek
+          neutron:
+            password: wuaeyfsdhawsIwdsdfeihf
+      oslo_cache:
+        auth:
+          memcache_secret_key: 4hvV8Q8ZBrQbguej4jwj
+      oslo_messaging:
+        auth:
+          admin:
+            username: rabbitmq-admin
+            password: 5mOMtMEnkx4TxTwEMGqY
+          neutron:
+            username: neutron-rabbitmq-user
+            password: pXmwLSFFvNOi8DJgPeb4
+        statefulset:
+          replicas: 3
+          name: openstack-rabbitmq-rabbitmq
+    pod:
+      replicas:
+        server: 3
+      probes:
+        dhcp_agent:
+          dhcp_agent:
+            readiness:
+              enabled: false
+            liveness:
+              enabled: false
+        l3_agent:
+          l3_agent:
+            readiness:
+              enabled: false
+            liveness:
+              enabled: false
+        metadata_agent:
+          metadata_agent:
+            readiness:
+              enabled: false
+            liveness:
+              enabled: false
+        ovs_agent:
+          ovs_agent:
+            liveness:
+              enabled: false
+        sriov_agent:
+          sriov_agent:
+            readiness:
+              enabled: false
+    labels:
+      agent:
+        dhcp:
+          node_selector_key: openstack-compute-node
+          node_selector_value: enabled
+        l3:
+          node_selector_key: openstack-compute-node
+          node_selector_value: enabled
+        metadata:
+          node_selector_key: openstack-compute-node
+          node_selector_value: enabled
+      job:
+        node_selector_key: openstack-compute-node
+        node_selector_value: enabled
+      netns_cleanup_cron:
+        node_selector_key: openstack-compute-node
+        node_selector_value: enabled
+      lb:
+        node_selector_key: linuxbridge
+        node_selector_value: enabled
+      # ovs is a special case, requiring a special
+      # label that can apply to both control hosts
+      # and compute hosts, until we get more sophisticated
+      # with our daemonset scheduling
+      ovs:
+        node_selector_key: openvswitch
+        node_selector_value: enabled
+      server:
+        node_selector_key: openstack-control-plane
+        node_selector_value: enabled
+      test:
+        node_selector_key: openstack-control-plane
+        node_selector_value: enabled
+    network:
+      server:
+        node_port:
+          enabled: true
+      #auto_bridge_add:
+      #  br-ex: ens3
+      interface:
+        tunnel: ens3
+    conf:
+      neutron:
+        DEFAULT:
+          #l3_ha: True
+          global_physnet_mtu: 9000
+          max_l3_agents_per_router: 3
+          l3_ha_network_type: vxlan
+          dhcp_agents_per_network: 3
+          service_plugins: router,firewall_v2,vpnaas
+        service_providers:
+          service_provider: FIREWALL_V2:fwaas_db:neutron_fwaas.services.firewall.service_drivers.agents.agents.FirewallAgentDriver:default
+      metadata_agent:
+        DEFAULT:
+          metadata_proxy_shared_secret: jLvPgsbTlfIVoK2aqOaL
+      plugins:
+        ml2_conf:
+          ml2_type_vlan:
+            network_vlan_ranges: provider
+          agent:
+            extensions: fwaas_v2
+          fwaas:
+            firewall_l2_driver: noop  
+        openvswitch_agent:
+          agent:
+            tunnel_types: vxlan
+          ovs:
+            bridge_mappings: public:br-ex
+      l3_agent:
+        DEFAULT:
+          ovs_use_veth: True          
+        AGENT:
+          extensions: fwaas_v2,vpnaas
+        vpnagent:
+          vpn_device_driver: neutron_vpnaas.services.vpn.device_drivers.strongswan_ipsec.StrongSwanDriver
+        fwaas:
+          agent_version: v2
+          driver: neutron_fwaas.services.firewall.service_drivers.agents.drivers.linux.iptables_fwaas_v2.IptablesFwaasDriver
+          enabled: true
+      fwaas_driver:
+        fwaas:
+          agent_version: v2
+          driver: neutron_fwaas.services.firewall.service_drivers.agents.drivers.linux.iptables_fwaas_v2.IptablesFwaasDriver
+          enabled: True
+      neutron_vpnaas:
+        service_providers:
+          service_provider: VPN:strongswan:neutron_vpnaas.services.vpn.service_drivers.ipsec.IPsecVPNDriver:default
+
+

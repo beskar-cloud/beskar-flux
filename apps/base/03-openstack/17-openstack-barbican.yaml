@@ -1,0 +1,79 @@
+kind: HelmRelease
+apiVersion: helm.toolkit.fluxcd.io/v2beta1
+metadata:
+  name: barbican
+  namespace: openstack
+spec:
+  interval: 5m
+  dependsOn:
+  - name: "horizon"
+    namespace: "openstack"
+  targetNamespace: openstack
+  storageNamespace: openstack
+  install:
+    disableWait: true
+  upgrade:
+    disableWait: true
+  chart:
+    spec:
+      chart: barbican
+      sourceRef:
+        kind: GitRepository
+        name: openstack-helm
+        namespace: default 
+      interval: 1m
+  values:
+    network:
+      api:
+        node_port:
+          enabled: true 
+    images:
+      tags:
+        bootstrap: &heat-image hemsonawane/heat:latest-zed-ubuntu_focal
+        dep_check: docker.itera.io/stackanetes/kubernetes-entrypoint:v1.0.0 
+        scripted_test: *heat-image
+        db_init:  *heat-image 
+        barbican_db_sync: &barbican-image docker.itera.io/openstackhelm/barbican:latest-zed-ubuntu_focal
+        db_drop: *heat-image 
+        ks_user: *heat-image
+        ks_service: *heat-image
+        ks_endpoints: *heat-image
+        barbican_api: *barbican-image
+      pull_policy: Always
+    endpoints:
+      identity:
+        auth:
+          admin:
+            password: grijgfreiefdf
+          barbican:
+            password: qciQicPIIgeWdw8lvH4X
+      oslo_db:
+        auth:
+          admin:
+            password: hQrCbbmZQqGJbfedePek
+          barbican:
+            password: iq5oRkZ7EhkPVdjOeLY3
+      oslo_cache:
+        auth:
+          memcache_secret_key: 4hvV8Q8ZBrQbguej4jwj 
+      oslo_messaging:
+        auth:
+          admin:
+            username: rabbitmq-admin
+            password: 5mOMtMEnkx4TxTwEMGqY
+          barbican:
+            username: barbican-rabbitmq-user
+            password: fgirgdhiepsod
+        statefulset:
+          replicas: 3
+          name: openstack-rabbitmq-rabbitmq
+    labels:
+      api:
+        node_selector_key: openstack-control-plane
+        node_selector_value: enabled
+      job:
+        node_selector_key: openstack-control-plane
+        node_selector_value: enabled
+    #pod:
+    #  replicas:
+    #    api: 3

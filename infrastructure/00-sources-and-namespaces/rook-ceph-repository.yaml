@@ -1,0 +1,16 @@
+apiVersion: source.toolkit.fluxcd.io/v1beta2
+kind: GitRepository
+metadata:
+  name: rook-ceph
+  namespace: default
+spec:
+  interval: 5m0s
+  url: https://gitlab.ics.muni.cz/cloud/g2/rook.git
+  ref:
+    branch: downstream
+    #tag: v1.10.5
+  ignore: |
+    # exclude all
+    /*
+    # include charts directory
+    !/deploy/charts/

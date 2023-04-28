@@ -1,0 +1,15 @@
+apiVersion: source.toolkit.fluxcd.io/v1beta2
+kind: GitRepository
+metadata:
+  name: custom-helm-charts
+  namespace: default
+spec:
+  interval: 5m0s
+  url: https://gitlab.ics.muni.cz/cloud/g2/custom-helm-charts.git
+  ref:
+    branch: master
+  #include:
+  #  - repository:
+  #      name: rook-ceph
+  #    fromPath: deploy/charts
+  #    toPath: .

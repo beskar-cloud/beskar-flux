@@ -1,0 +1,58 @@
+kind: HelmRelease
+apiVersion: helm.toolkit.fluxcd.io/v2beta1
+metadata:
+  name: nova
+  namespace: openstack
+spec:
+  values:
+    pod:
+      replicas:
+        novncproxy: 3
+    network:
+      osapi:
+        ingress:
+          classes:
+            namespace: "nginx"
+            cluster: "nginx-cluster"
+          annotations:
+            nginx.ingress.kubernetes.io/rewrite-target: /
+            cert-manager.io/cluster-issuer: "letsencrypt"
+      novncproxy:
+        ingress:
+          classes:
+            namespace: "nginx"
+            cluster: "nginx-cluster"
+          annotations:
+            nginx.ingress.kubernetes.io/rewrite-target: /
+            cert-manager.io/cluster-issuer: "letsencrypt"
+    endpoints:
+      compute:
+        port:
+          api:
+            public: 443
+        scheme:
+          public: https
+        host_fqdn_override:
+          public:
+            host: nova.shubham.taikun.services
+            tls:
+              dnsNames:
+                - nova.shubham.taikun.services
+            issuerRef:
+              name: letsencrypt
+              kind: ClusterIssuer
+      compute_novnc_proxy:
+        port:
+          novnc_proxy:
+            public: 443
+        scheme:
+          public: https
+        host_fqdn_override:
+          public:
+            host: novnc.shubham.taikun.services
+            tls:
+              dnsNames:
+                - novnc.shubham.taikun.services
+            issuerRef:
+              name: letsencrypt
+              kind: ClusterIssuer

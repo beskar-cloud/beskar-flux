@@ -1,0 +1,12 @@
+apiVersion: source.toolkit.fluxcd.io/v1beta2
+kind: GitRepository
+metadata:
+  name: openstack-helm-infra
+  namespace: default
+spec:
+  interval: 5m0s
+  url: ssh://git@infra.itera.io/shubham/openstack-helm-infra.git   #git@infra.itera.io/shubham/openstack-helm-infra.git #ssh://git@infra.itera.io/cedric-osh-lab/openstack-helm-infra
+  ref:
+    branch: master
+  secretRef:
+    name: podinfo-auth

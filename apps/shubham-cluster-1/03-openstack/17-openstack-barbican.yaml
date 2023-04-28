@@ -1,0 +1,32 @@
+kind: HelmRelease
+apiVersion: helm.toolkit.fluxcd.io/v2beta1
+metadata:
+  name: barbican
+  namespace: openstack
+spec:
+  values:
+    network:
+      api:
+        ingress:
+          classes:
+            namespace: "nginx"
+            cluster: "nginx-cluster"
+          annotations:
+            nginx.ingress.kubernetes.io/rewrite-target: /
+            cert-manager.io/cluster-issuer: "letsencrypt"
+    endpoints:
+      key_manager:
+        port:
+          api:
+            public: 443
+        scheme:
+          public: https
+        host_fqdn_override:
+          public:
+            host: barbican.shubham.taikun.services
+            tls:
+              dnsNames:
+                - barbican.shubham.taikun.services
+            issuerRef:
+              name: letsencrypt
+              kind: ClusterIssuer

@@ -1,0 +1,34 @@
+kind: HelmRelease
+apiVersion: helm.toolkit.fluxcd.io/v2beta1
+metadata:
+  name: prometheus-node-exporter
+  namespace: osh-infra
+spec:
+  interval: 5m
+  dependsOn:
+  - name: "prometheus-kube-state-metrics"
+    namespace: "osh-infra"
+  targetNamespace: osh-infra
+  storageNamespace: osh-infra
+  chart:
+    spec:
+      chart: prometheus-node-exporter
+      sourceRef:
+        kind: GitRepository
+        name: openstack-helm-infra
+        namespace: default 
+      interval: 1m
+  values:
+    images:
+      tags:
+        node_exporter: docker.itera.io/prom/node-exporter:v1.1.2
+        dep_check: docker.itera.io/stackanetes/kubernetes-entrypoint:v1.0.0
+        image_repo_sync: docker.itera.io/docker:17.07.0
+    labels:
+      node_exporter:
+        node_selector_key: mon 
+
+        node_selector_value: enabled
+      job:
+        node_selector_key: openstack-control-plane
+        node_selector_value: enabled

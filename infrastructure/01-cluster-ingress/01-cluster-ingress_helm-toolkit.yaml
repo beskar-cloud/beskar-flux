@@ -1,0 +1,17 @@
+kind: HelmRelease
+apiVersion: helm.toolkit.fluxcd.io/v2beta1
+metadata:
+  name: helm-toolkit
+  namespace: default
+spec:
+  interval: 5m
+  targetNamespace: default
+  storageNamespace: default
+  chart:
+    spec:
+      chart: helm-toolkit
+      sourceRef:
+        kind: GitRepository
+        name: openstack-helm-infra
+        namespace: default
+      interval: 1m

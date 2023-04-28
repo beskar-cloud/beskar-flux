@@ -1,0 +1,22 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - 01-ingress-controller.yaml
+  - 02-rook-ceph-client-config.yaml
+  #- 03-openstack-mariadb-enc-secret.yaml
+  - 03-openstack-mariadb.yaml
+  - 04-openstack-memcached.yaml
+  - 05-openstack-rabbitmq.yaml
+  - 06-openstack-keystone.yaml
+  - 07-openstack-radosgw-openstack.yaml
+  - 08-openstack-glance.yaml
+  - 09-openstack-cinder.yaml
+  - 10-openstack-openvswitch.yaml
+  - 11-openstack-libvirt.yaml
+  - 12-openstack-nova.yaml
+  - 13-openstack-placement.yaml
+  - 14-openstack-neutron.yaml
+  - 15-openstack-heat.yaml
+  - 16-openstack-horizon.yaml
+  - 17-openstack-barbican.yaml
+  - 18-openstack-prometheus-openstack-exporter.yaml

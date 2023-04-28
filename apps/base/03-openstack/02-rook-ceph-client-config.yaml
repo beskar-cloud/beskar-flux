@@ -1,0 +1,31 @@
+kind: HelmRelease
+apiVersion: helm.toolkit.fluxcd.io/v2beta1
+metadata:
+  name: rook-ceph-client-config
+  namespace: &openstack-ns openstack
+spec:
+  interval: 5m
+  dependsOn:
+  - name: rook-ceph-services
+    namespace: rook-ceph
+  targetNamespace: *openstack-ns
+  storageNamespace: *openstack-ns
+  chart:
+    spec:
+      chart: rook-ceph-client-config
+      sourceRef:
+        kind: GitRepository
+        name: custom-helm-charts
+        namespace: default 
+      interval: 1m
+  values:
+    cephConfiguration:
+      monitorHosts: ceph-mon.rook-ceph.svc.cluster.local:3300
+    secrets:
+      source:
+        namespace: rook-ceph
+        name: rook-ceph-admin-keyring
+      destination:
+        namespace: *openstack-ns
+        name: pvc-ceph-client-key
+

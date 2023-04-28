@@ -1,0 +1,25 @@
+kind: HelmRelease
+apiVersion: helm.toolkit.fluxcd.io/v2beta1
+metadata:
+  name: helm-toolkit
+  namespace: &reflector-ns reflector-system
+spec:
+  interval: 5m
+  targetNamespace: *reflector-ns
+  storageNamespace: *reflector-ns
+  chart:
+    spec:
+      chart: reflector
+      version: "6.1.47"
+      sourceRef:
+        kind: HelmRepository
+        name: emberstack
+        namespace: default
+      interval: 1m
+  values:
+    configuration:
+      logging:
+        minimumLevel: Debug
+      watcher:
+        timeout: 60
+

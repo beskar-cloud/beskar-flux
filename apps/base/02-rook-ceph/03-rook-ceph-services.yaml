@@ -1,0 +1,20 @@
+kind: HelmRelease
+apiVersion: helm.toolkit.fluxcd.io/v2beta1
+metadata:
+  name: rook-ceph-services
+  namespace: &ceph-ns rook-ceph
+spec:
+  interval: 5m
+  dependsOn:
+  - name: "rook-ceph-cluster"
+    namespace: *ceph-ns
+  targetNamespace: *ceph-ns
+  storageNamespace: *ceph-ns
+  chart:
+    spec:
+      chart: rook-ceph-services
+      sourceRef:
+        kind: GitRepository
+        name: custom-helm-charts
+        namespace: default 
+      interval: 1m

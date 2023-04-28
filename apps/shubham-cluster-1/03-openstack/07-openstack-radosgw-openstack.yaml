@@ -1,0 +1,34 @@
+kind: HelmRelease
+apiVersion: helm.toolkit.fluxcd.io/v2beta1
+metadata:
+  name: radosgw-openstack
+  namespace: openstack
+spec:
+  values:
+    network:
+      api:
+        ingress:
+          classes:
+            namespace: "nginx"
+            cluster: "nginx-cluster"
+          annotations:
+            nginx.ingress.kubernetes.io/rewrite-target: /
+            nginx.ingress.kubernetes.io/proxy-body-size: "0"
+            nginx.ingress.kubernetes.io/proxy-max-temp-file-size: "0"
+            cert-manager.io/cluster-issuer: "letsencrypt"
+    endpoints:
+      object_store:
+        port:
+          api:
+            public: 443
+        scheme:
+          public: https
+        host_fqdn_override:
+          public:
+            host: rgw.shubham.taikun.services
+            tls:
+              dnsNames:
+                - rgw.shubham.taikun.services
+            issuerRef:
+              name: letsencrypt
+              kind: ClusterIssuer

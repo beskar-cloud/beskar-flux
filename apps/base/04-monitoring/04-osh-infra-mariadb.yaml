@@ -1,0 +1,37 @@
+kind: HelmRelease
+apiVersion: helm.toolkit.fluxcd.io/v2beta1
+metadata:
+  name: osh-infra-mariadb
+  namespace: osh-infra
+spec:
+  interval: 5m
+  dependsOn:
+  - name: "osh-infra-ldap"
+    namespace: "osh-infra"
+  targetNamespace: osh-infra
+  storageNamespace: osh-infra
+  chart:
+    spec:
+      chart: mariadb
+      sourceRef:
+        kind: GitRepository
+        name: openstack-helm-infra
+        namespace: default 
+      interval: 1m
+  values:
+    pod:
+      replicas:
+        server: 1
+    endpoints:
+      oslo_db:
+        auth:
+          admin:
+            password: wuaeyfsdhawsI
+          exporter:
+            password: AxypS8fuVccVNX8WKDkc
+          sst:
+            password: 4prvsHT9WDDEkRQdfjjp
+    volume:
+      class_name: ceph-block
+      backup:
+        class_name: ceph-block

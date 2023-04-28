@@ -1,0 +1,19 @@
+kind: HelmRelease
+apiVersion: helm.toolkit.fluxcd.io/v2beta1
+metadata:
+  name: cert-manager
+  namespace: &cert-manager-ns cert-manager
+spec:
+  interval: 5m
+  targetNamespace: *cert-manager-ns
+  storageNamespace: *cert-manager-ns
+  chart:
+    spec:
+      chart: cert-manager
+      sourceRef:
+        kind: HelmRepository
+        name: cert-manager
+        namespace: default
+      interval: 1m
+  values:
+    installCRDs: true

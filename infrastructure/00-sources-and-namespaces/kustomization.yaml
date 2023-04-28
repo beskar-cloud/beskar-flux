@@ -1,0 +1,11 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - namespaces.yaml
+  - cert-manager-helmrepository.yaml
+  - openstack-helm-repository.yaml
+  - openstack-helm-infra-repository.yaml
+  - rook-ceph-repository.yaml
+  - rook-ceph-helmrepository.yaml
+  - custom-helm-charts-repository.yaml
+  - emberstack-helmrepository.yaml

@@ -1,0 +1,25 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: debugger
+  name: debugger
+  namespace: default
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: debugger
+  strategy: {}
+  template:
+    metadata:
+      labels:
+        app: debugger
+    spec:
+      containers:
+      - image: ubuntu:jammy
+        name: ubuntu
+        args:
+        - sleep
+        - infinity 
+        resources: {}

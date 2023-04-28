@@ -1,0 +1,8 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - 00-sources-and-namespaces
+  - 01-cluster-ingress
+  - 02-debugger
+  - 03-reflector
+  - 04-gitops

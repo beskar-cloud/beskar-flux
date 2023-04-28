@@ -1,0 +1,229 @@
+kind: HelmRelease
+apiVersion: helm.toolkit.fluxcd.io/v2beta1
+metadata:
+  name: nova
+  namespace: openstack
+spec:
+  interval: 5m
+  timeout: 15m
+  dependsOn:
+  - name: "cinder"
+    namespace: "openstack"
+  targetNamespace: openstack
+  storageNamespace: openstack
+  install:
+    disableWait: true
+    disableWaitForJobs: true
+  upgrade:
+    disableWait: true
+    disableWaitForJobs: true
+  chart:
+    spec:
+      chart: nova
+      sourceRef:
+        kind: GitRepository
+        name: openstack-helm
+        namespace: default 
+      interval: 1m
+  values:
+    images:
+      tags:
+        bootstrap: &heat-image hemsonawane/heat:latest-zed-ubuntu_focal
+        db_drop: *heat-image
+        db_init: *heat-image
+        dep_check: 'quay.io/airshipit/kubernetes-entrypoint:v1.0.0'
+        rabbit_init: docker.io/rabbitmq:3.9-management
+        ks_user: *heat-image
+        ks_service: *heat-image
+        nova_archive_deleted_rows: &nova-image hemsonawane/nova:latest-zed-ubuntu_focal
+        ks_endpoints: *heat-image
+        nova_api: *nova-image
+        nova_cell_setup: *nova-image
+        nova_cell_setup_init: *heat-image
+        nova_compute: *nova-image
+        nova_compute_ssh: docker.io/openstackhelm/nova-ssh:latest-ubuntu_focal
+        nova_conductor: *nova-image
+        nova_db_sync: *nova-image
+        nova_novncproxy: *nova-image
+        nova_novncproxy_assets: 'docker.io/kolla/ubuntu-source-nova-novncproxy:ussuri'
+        nova_scheduler: *nova-image
+        # NOTE(portdirect): we simply use the ceph config helper here,
+        # as it has both oscli and jq.
+        nova_service_cleaner: 'docker.io/openstackhelm/ceph-config-helper:latest-ubuntu_bionic'
+        nova_spiceproxy: *nova-image
+        nova_spiceproxy_assets: *nova-image
+        test: docker.io/xrally/xrally-openstack:2.0.0
+        image_repo_sync: docker.io/docker:17.07.0
+        nova_wait_for_computes_init: gcr.io/google_containers/hyperkube-amd64:v1.11.6
+    network:
+      osapi:
+        node_port:
+          enabled: true
+      novncproxy:
+        name: "nova-novncproxy"
+        node_port:
+          enabled: true
+          port: 30608
+        port: 6080
+        targetPort: 6080
+      ssh:
+        enabled: true
+        from_subnet: 0.0.0.0/0
+        private_key: |
+          -----BEGIN RSA PRIVATE KEY-----
+          MIIEpAIBAAKCAQEAyFgvDzfdG5rTGdXWW1IodKyRX8ee3n20B3PQaCjPZsSuBUdC
+          uGveIobxPW1B9oS4uUa161W5nVSlyHs3qoZCsdVbTS/XHZG73BPElrvoggdmew6u
+          EB9J2hy0Wbp4IESOfqgF65d2eZsmnFHAjjFZTAGnvHLzd8CNJovt4igRwPrK4bHK
+          oqZV2bWmXJ+Cc7INKVrDqgL2oHOtd3ZqLn6NwhMeSbX4NgF3ZaNxlSswkkIhE7FV
+          iWDvziNkIyMfx7elSiMyO/u3ETav3XC7Hs3H8q2VTd3uSoTE92+zEq4DO1051Sqh
+          pHm0LaVWYaAQchnC76voqT7lfL8+parw6gTzpQIDAQABAoIBAQC6i5nuAqdID+am
+          dL0utRZkZVbLp1UfeE6MbeNNSUqtN0+OLKdMj2v8HEg+WSCFiVlzcwrrQRwfCfV/
+          8nOHvZIWgkKMYZJcvxj8OA/iBr/da0SaKrYa3vdmNzobHozCBvPjrVIt5w9y9euC
+          vICeJgcuxY/I4gQfqlQD42EyJvs5AubsZ1KbaqIpQYeTYOo11N6Xwr7yE50C65tg
+          +27xwfeVP8zPLTs0Jz1kmHhScYDPMUkHGI5C7Hq0rECRH9loLQuxXVqOQgqnJUlZ
+          YXJ40KBdKW05IwKc7sdzLLTUdpDp81vvzJ155wnl5zXD3FI2UxEA9GfwHp5Az/QP
+          dxNugQoBAoGBAOMp85p7YXYwxFpuTwEWbKe2bB7wz1zr/Bkg7VdJt78nSqJcCCNU
+          NjKrdWF0OgfKbjlSdFml6963LauJ82gbwmJegG4xfvZmczlSOLvxmoEKhTnE/ZJX
+          IUWO7ao4bwffIDA/orgVrRfS4Dxt2Bx6UDo0EW+PKi6tU1KDIALUgwGBAoGBAOHG
+          sYB/8vcgxQaoLqkhkdjDJnYFCwuuMmzuPJacohXngJMwyduSVyUL19UOqh83iRi9
+          aOjlJRNMxWVx59K4zCdehyQgyUJ+RSdag5bxajp19VwdjRlrlg5PyQuyNLkiN+/G
+          Ypulz8dnxBmiFaWMtqm6PhJEtrqUcgfzfl7Fe7wlAoGAIt+U2zlnu+o+qpdWn5ce
+          tRyHOrTDUMOVnxHz/bt+buUMSyKPyUSrUVoLGhvqsLl99GTZIc4cCMPcSgJSkL/6
+          NnnFg6UrlY4i0ED0Hr43dunzi+vW9blUjUYk7EXfnbi+S0nppBMH0Kl57Sz7yVtp
+          p5XIu3SiCCppqTgiGO0g84ECgYAXYoEYEiiUOCywF9NdaUC19uCQ8MzIFO7cIYDd
+          CLQxGJ1UoYUG3Q1xpNxiEPbF7PaiPVwUY0eHzDfV3gpo5QMgQMY2k77EyFdZUCK5
+          C6A5Fean99eZfm84ZEMqlvanBkhM6XtlK7Ntr+27yfH8B6sTwVqUgdF7WczFzg6U
+          uleqkQKBgQCH1Co7BmI993wk2WmECCe/XSZYQOC3MtLHmvz2P0ecEUcmT9mwo979
+          tli5BazOJcbjzDIjXpVu7YdiFy9QolDeW6HNA1e0Kv5MneEnQq5OLg2deuUAwanR
+          WtQ1xz4+zh8yHSrOZKo0Gce/1a+eGU2UawBUugtVPPSw9Yyv5zRGIw==
+          -----END RSA PRIVATE KEY-----
+        public_key: |
+          ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDIWC8PN90bmtMZ1dZbUih0rJFfx57efbQHc9BoKM9mxK4FR0K4a94ihvE9bUH2hLi5RrXrVbmdVKXIezeqhkKx1VtNL9cdkbvcE8SWu+iCB2Z7Dq4QH0naHLRZunggRI5+qAXrl3Z5myacUcCOMVlMAae8cvN3wI0mi+3iKBHA+srhscqiplXZtaZcn4Jzsg0pWsOqAvagc613dmoufo3CEx5Jtfg2AXdlo3GVKzCSQiETsVWJYO/OI2QjIx/Ht6VKIzI7+7cRNq/dcLsezcfyrZVN3e5KhMT3b7MSrgM7XTnVKqGkebQtpVZhoBByGcLvq+ipPuV8vz6lqvDqBPOl chnyda@chnydas-MacBook-Pro.local
+    endpoints:
+      identity:
+        name: keystone
+        auth:
+          admin:
+            password: grijgfreiefdf
+          nova:
+            password: S2gQorl5qVc4FIWi8FbH
+          neutron:
+            password: fPSHADhcaRfhyWOepXqc
+          placement:
+            username: placement
+            password: SF3L4KakWlbj1naAjwTz
+          test:
+            password: l42jQhmAUSO8BBZnshgM
+      oslo_db:
+        auth:
+          admin:
+            password: hQrCbbmZQqGJbfedePek
+          nova:
+            password: 8yPTwBDaTaQzUvxVSAqT
+      oslo_db_api:
+        auth:
+          admin:
+            password: hQrCbbmZQqGJbfedePek
+          nova:
+            password: 8yPTwBDaTaQzUvxVSAqT
+      oslo_db_cell0:
+        auth:
+          admin:
+            password: hQrCbbmZQqGJbfedePek
+          nova:
+            password: 8yPTwBDaTaQzUvxVSAqT
+      oslo_cache:
+        auth:
+          memcache_secret_key: 4hvV8Q8ZBrQbguej4jwj
+      oslo_messaging:
+        auth:
+          admin:
+            username: rabbitmq-admin
+            password: 5mOMtMEnkx4TxTwEMGqY
+          nova:
+            username: nova-rabbitmq-user
+            password: 1CCSW0VWqn7OWYQu5r16
+        statefulset:
+          replicas: 3
+          name: openstack-rabbitmq-rabbitmq
+    labels:
+      agent:
+        compute:
+          node_selector_key: openstack-compute-node
+          node_selector_value: enabled
+        compute_ironic:
+          node_selector_key: openstack-compute-node
+          node_selector_value: enabled
+      api_metadata:
+        node_selector_key: openstack-control-plane
+        node_selector_value: enabled
+      conductor:
+        node_selector_key: openstack-control-plane
+        node_selector_value: enabled
+     # consoleauth:
+     #   node_selector_key: openstack-control-plane
+     #   node_selector_value: enabled
+      job:
+        node_selector_key: openstack-control-plane
+        node_selector_value: enabled
+      novncproxy:
+        node_selector_key: openstack-control-plane
+        node_selector_value: enabled
+      osapi:
+        node_selector_key: openstack-control-plane
+        node_selector_value: enabled
+     # placement:
+     #   node_selector_key: openstack-control-plane
+     #   node_selector_value: enabled
+      scheduler:
+        node_selector_key: openstack-control-plane
+        node_selector_value: enabled
+      spiceproxy:
+        node_selector_key: openstack-control-plane
+        node_selector_value: enabled
+      test:
+        node_selector_key: openstack-control-plane
+        node_selector_value: enabled
+    pod:
+      enabled: true
+      probes:
+        compute:
+          default:
+            liveness:
+              enabled: False
+            readiness:
+              enabled: False
+      security_context:
+        nova:
+          pod:
+            runAsUser: 42424
+          container:
+            nova_keys:
+              readOnlyRootFilesystem: true
+              runAsUser: 0
+      replicas:
+        api_metadata: 3
+        osapi: 3
+        conductor: 3
+        scheduler: 3
+        novncproxy: 1
+    conf:
+      nova:
+        DEFAULT:
+          debug: true
+#        vnc:
+#          novncproxy_base_url: http://192.168.101.36:30608/vnc_auto.html
+        neutron:
+          metadata_proxy_shared_secret: jLvPgsbTlfIVoK2aqOaL
+        libvirt:
+          virt_type: kvm
+          cpu_mode: host-passthrough
+    manifests:
+      deployment_placement: false
+      deployment_consoleauth: false
+      job_ks_placement_endpoints: false
+      job_ks_placement_service: false
+      job_ks_placement_user: false
+      pdb_placement: false
+      service_ingress_placement: false
+      service_placement: false

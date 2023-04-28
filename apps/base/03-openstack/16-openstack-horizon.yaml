@@ -1,0 +1,55 @@
+kind: HelmRelease
+apiVersion: helm.toolkit.fluxcd.io/v2beta1
+metadata:
+  name: horizon
+  namespace: openstack
+spec:
+  interval: 5m
+  timeout: 15m
+  dependsOn:
+  - name: "heat"
+    namespace: "openstack"
+  targetNamespace: openstack
+  storageNamespace: openstack
+  install:
+    disableWait: true
+  upgrade:
+    disableWait: true
+  chart:
+    spec:
+      chart: horizon
+      sourceRef:
+        kind: GitRepository
+        name: openstack-helm
+        namespace: default 
+      interval: 1m
+  values:
+    images:
+      tags:
+        db_init: &heat-image hemsonawane/heat:latest-zed-ubuntu_focal
+        db_drop: *heat-image
+        horizon_db_sync: &horizon-image openstackhelm/horizon:xena-ubuntu_focal
+      pull_policy: "Always"
+    network:
+      node_port:
+        enabled: true
+        port: 31000
+    endpoints:
+      oslo_db:
+        auth:
+          admin:
+            password: hQrCbbmZQqGJbfedePek
+    #pod:
+    #  replicas:
+    #    server: 1
+    local_settings:
+      openstack_neutron_network:
+        enable_router: "True"
+        enable_quotas: "True"
+        enable_ipv6: "False"
+        enable_distributed_router: "False"
+        enable_ha_router: "True"
+        enable_lb: "True"
+        enable_firewall: "True"
+        enable_vpn: "True"
+        enable_fip_topology_check: "True"

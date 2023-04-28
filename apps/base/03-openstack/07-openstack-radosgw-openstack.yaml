@@ -1,0 +1,72 @@
+kind: HelmRelease
+apiVersion: helm.toolkit.fluxcd.io/v2beta1
+metadata:
+  name: radosgw-openstack
+  namespace: openstack
+spec:
+  interval: 5m
+  dependsOn:
+  - name: "keystone"
+    namespace: "openstack"
+  targetNamespace: openstack
+  storageNamespace: openstack
+  install:
+    disableWait: true
+  upgrade:
+    disableWait: true
+  chart:
+    spec:
+      chart: ceph-rgw
+      sourceRef:
+        kind: GitRepository
+        name: openstack-helm-infra
+        namespace: default 
+      interval: 1m
+  values:
+    images:
+      pull_policy: Always
+      tags:
+        ceph_bootstrap: &img_ceph_daemon 'docker.io/openstackhelm/ceph-daemon:ubuntu_bionic-20220202'
+        ceph_config_helper: &ceph_config_helper 'docker.io/openstackhelm/ceph-config-helper:ubuntu_bionic-20220802'
+        ceph_rgw: *img_ceph_daemon
+        dep_check: 'quay.io/airshipit/kubernetes-entrypoint:v1.0.0'
+        image_repo_sync: 'docker.io/library/docker:17.07.0'
+        rgw_s3_admin: *ceph_config_helper
+        rgw_placement_targets: *ceph_config_helper
+        ks_endpoints: &img_heat 'docker.io/openstackhelm/heat:wallaby-ubuntu_focal'
+        ks_service: *img_heat
+        ks_user: *img_heat
+    endpoints:
+      identity:
+        namespace: openstack
+        auth:
+          admin:
+            password: grijgfreiefdf
+          swift:
+            password: IOdsfjhgqwwd
+          object_store:
+            namespace: openstack
+          ceph_mon:
+            namespace: rook-ceph
+      object_store:
+        namespace: openstack
+      ceph_mon:
+        namespace: rook-ceph
+    labels:
+      job:
+        node_selector_key: openstack-control-plane
+        node_selector_value: enabled
+    bootstrap:
+      enabled: False
+    conf:
+      rgw_ks:
+        enabled: True
+    network:
+      public: 10.0.0.0/24
+      cluster: 10.0.0.0/24
+    deployment:
+      ceph: True
+      rbd_provisioner: False
+      cephfs_provisioner: False
+      client_secrets: False
+

@@ -1,0 +1,26 @@
+kind: HelmRelease
+apiVersion: helm.toolkit.fluxcd.io/v2beta1
+metadata:
+  name: rook-ceph-cluster
+  namespace: &rook-ceph-namespace rook-ceph
+spec:
+  values:
+    cephClusterSpec:
+      storage:
+        useAllNodes: false
+        useAllDevices: false
+        nodes:
+          - &ceph_cluster_spec_storage_node_config
+            name: "lab-11053-21665-ctl-1"
+            deviceFilter: "^sd[b-j]"
+          - <<: *ceph_cluster_spec_storage_node_config
+            name: "lab-11053-21665-ctl-2"
+          - <<: *ceph_cluster_spec_storage_node_config
+            name: "lab-11053-21665-ctl-3"
+    configOverride: |
+      [global]
+      fsid = 3a8f66e6-1528-4b63-b36b-18ec24e907a1
+      public network =  192.168.101.0/24
+      cluster network = 192.168.101.0/24
+      public addr = ""
+      cluster addr = ""

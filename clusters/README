@@ -1,0 +1,23 @@
+
+Enabling SOPS decryption is done following way:
+
+```diff
+ apiVersion: source.toolkit.fluxcd.io/v1beta2
+ kind: GitRepository
+ metadata:
+   name: flux-system
+   namespace: flux-system
+ spec:
+   interval: 1m0s
+   ref:
+     branch: master
+   secretRef:
+     name: flux-system
+   url: ssh://git@gitlab.ics.muni.cz/246254/gitops-flux-test
++  decryption:
++    # Use the sops provider
++    provider: sops
++    secretRef:
++      # Reference the SOPS private key of given environment/cluster secret
++      name: production-sops-gpg
+```

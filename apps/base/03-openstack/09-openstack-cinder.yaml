@@ -1,0 +1,109 @@
+kind: HelmRelease
+apiVersion: helm.toolkit.fluxcd.io/v2beta1
+metadata:
+  name: cinder
+  namespace: openstack
+spec:
+  interval: 5m
+  timeout: 10m
+  dependsOn:
+  - name: "glance"
+    namespace: "openstack"
+  targetNamespace: openstack
+  storageNamespace: openstack
+  install:
+    disableWait: true
+  upgrade:
+    disableWait: true
+  chart:
+    spec:
+      chart: cinder
+      sourceRef:
+        kind: GitRepository
+        name: openstack-helm
+        namespace: default 
+      interval: 1m
+  values:
+    network:
+      api:
+        node_port:
+          enabled: true 
+    images:
+      tags:
+        db_init: &heat-image hemsonawane/heat:latest-zed-ubuntu_focal
+        cinder_db_sync: &cinder-image hemsonawane/cinder:latest-zed-ubuntu_focal
+        db_drop: *heat-image
+        ks_user: *heat-image
+        ks_service: *heat-image
+        ks_endpoints: *heat-image
+        cinder_api: *cinder-image
+        bootstrap: *heat-image
+        cinder_scheduler: *cinder-image
+        cinder_volume: *cinder-image
+        cinder_volume_usage_audit: *cinder-image
+        cinder_storage_init: "docker.io/openstackhelm/ceph-config-helper:latest-ubuntu_bionic"
+        cinder_backup: *cinder-image
+        cinder_backup_storage_init: "docker.io/openstackhelm/ceph-config-helper:latest-ubuntu_bionic"
+      pull_policy: Always
+    endpoints:
+      identity:
+        auth:
+          admin:
+            password: grijgfreiefdf
+          cinder:
+            password: qeVjCl9B8L1wYq2XKpHU
+          test:
+            password: IJs62S58PaATlk6mT3qX
+      oslo_db:
+        auth:
+          admin:
+            password: hQrCbbmZQqGJbfedePek
+          cinder:
+            password: eubpcCze7RgwgdTKKCyi
+      oslo_cache:
+        auth:
+          memcache_secret_key: 4hvV8Q8ZBrQbguej4jwj
+      oslo_messaging:
+        auth:
+          admin:
+            username: rabbitmq-admin
+            password: 5mOMtMEnkx4TxTwEMGqY
+          cinder:
+            username: cinder-rabbitmq-user
+            password: RozRtjh9g5WjW3htUXGa
+        statefulset:
+          replicas: 3
+          name: openstack-rabbitmq-rabbitmq
+    labels:
+      api:
+        node_selector_key: openstack-control-plane
+        node_selector_value: enabled
+      backup:
+        node_selector_key: openstack-compute-node
+        node_selector_value: enabled
+      job:
+        node_selector_key: openstack-control-plane
+        node_selector_value: enabled
+      scheduler:
+        node_selector_key: openstack-control-plane
+        node_selector_value: enabled
+      volume:
+        node_selector_key: openstack-compute-node
+        node_selector_value: enabled
+    pod:
+      replicas:
+        api: 3
+        volume: 1
+        scheduler: 1
+        backup: 1
+    conf:
+      cinder:
+        DEFAULT:
+          debug: true
+          verbose: true
+
+    # backup to internal ceph
+    backup:
+      posix:
+        volume:
+          class_name: ceph-block

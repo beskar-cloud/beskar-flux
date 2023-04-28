@@ -1,0 +1,20 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - ../base/01-cert-manager
+  - ../base/02-rook-ceph
+  - ../base/03-openstack
+  - ../base/04-monitoring
+patchesStrategicMerge:
+  - 02-rook-ceph/01-rook-ceph-operator.yaml
+  - 02-rook-ceph/02-rook-ceph-cluster.yaml
+  - 03-openstack/06-openstack-keystone.yaml
+  - 03-openstack/07-openstack-radosgw-openstack.yaml
+  - 03-openstack/08-openstack-glance.yaml
+  - 03-openstack/09-openstack-cinder.yaml
+  - 03-openstack/12-openstack-nova.yaml
+  - 03-openstack/13-openstack-placement.yaml
+  - 03-openstack/14-openstack-neutron.yaml.yaml
+  - 03-openstack/15-openstack-heat.yaml
+  - 03-openstack/16-openstack-horizon.yaml
+  - 03-openstack/17-openstack-barbican.yaml
