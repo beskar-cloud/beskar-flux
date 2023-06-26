@@ -1,0 +1,214 @@
+kind: HelmRelease
+apiVersion: helm.toolkit.fluxcd.io/v2beta1
+metadata:
+  name: cinder
+  namespace: openstack
+spec:
+  interval: 10m
+  dependsOn:
+  - name: "glance"
+    namespace: "openstack"
+  targetNamespace: openstack
+  storageNamespace: openstack
+  chart:
+    spec:
+      chart: cinder
+      sourceRef:
+        kind: GitRepository
+        name: openstack-helm
+        namespace: default
+      interval: 1m
+  valuesFrom:
+  - kind: Secret
+    name: common
+    valuesKey: keystone.identity.admin.password
+    targetPath: endpoints.identity.auth.admin.password
+  - kind: ConfigMap
+    name: common
+    valuesKey: region_name
+    targetPath: endpoints.identity.auth.admin.region_name
+  - kind: Secret
+    name: common
+    valuesKey: cinder.identity.cinder.password
+    targetPath: endpoints.identity.auth.cinder.password
+  - kind: ConfigMap
+    name: common
+    valuesKey: region_name
+    targetPath: endpoints.identity.auth.cinder.region_name
+  - kind: Secret
+    name: common
+    valuesKey: cinder.identity.test.password
+    targetPath: endpoints.identity.auth.test.password
+  - kind: ConfigMap
+    name: common
+    valuesKey: region_name
+    targetPath: endpoints.identity.auth.test.region_name
+  - kind: Secret
+    name: common
+    valuesKey: mariadb.admin.password
+    targetPath: endpoints.oslo_db.auth.admin.password
+  - kind: Secret
+    name: common
+    valuesKey: cinder.oslo_db.cinder.password
+    targetPath: endpoints.oslo_db.auth.cinder.password
+  - kind: Secret
+    name: common
+    valuesKey: keystone.oslo_cache.memcache_secret_key
+    targetPath: endpoints.oslo_cache.auth.memcache_secret_key
+  - kind: Secret
+    name: common
+    valuesKey: rabbitmq.admin.password
+    targetPath: endpoints.oslo_messaging.auth.admin.password
+  - kind: Secret
+    name: common
+    valuesKey: cinder.oslo_messaging.cinder.password
+    targetPath: endpoints.oslo_messaging.auth.cinder.password
+  - kind: ConfigMap
+    name: common
+    valuesKey: region_name
+    targetPath: conf.cinder.DEFAULT.os_region_name
+  - kind: ConfigMap
+    name: common
+    valuesKey: cinder.conf.backends.du-ceph-cl3.rbd_secret_uuid
+    targetPath: conf.backends.du-ceph-cl3.rbd_secret_uuid
+  # https://github.com/beskar-cloud/openstack-helm/blob/main/cinder/values.yaml
+  values:
+    ceph_client:
+      internal_ceph_backend: &default-cinder-ceph-backend du-ceph-cl3
+    network:
+      api:
+        node_port:
+          enabled: true
+        ingress:
+          public: false
+    images:
+      tags:
+        db_init: &img_heat docker.io/openstackhelm/heat:yoga-ubuntu_focal-20230526
+        cinder_db_sync: &img_cinder docker.io/openstackhelm/cinder:yoga-ubuntu_focal-20230526
+        db_drop: *img_heat
+        ks_user: *img_heat
+        ks_service: *img_heat
+        ks_endpoints: *img_heat
+        cinder_api: *img_cinder
+        bootstrap: *img_heat
+        cinder_scheduler: *img_cinder
+        cinder_volume: *img_cinder
+        cinder_volume_usage_audit: *img_cinder
+        cinder_storage_init: &ceph-config-helper docker.io/openstackhelm/ceph-config-helper:ubuntu_focal_17.2.6-1-20230508
+        cinder_backup: *img_cinder
+        cinder_backup_storage_init: *ceph-config-helper
+      pull_policy: Always
+    endpoints:
+      volumev3:
+        scheme:
+          public: https
+        port:
+          api:
+            public: 443
+        hosts:
+          public: null
+        host_fqdn_override:
+          public: volumev3.ostrava.openstack.cloud.dev
+      identity:
+        auth:
+          admin: {}
+            #password: ""          # secret/openstack/common/keystone.identity.admin.password
+            #region_name: ""       # configmap/common/region_name
+          cinder: {}
+            #password: ""          # secret/openstack/common/cinder.identity.cinder.password
+            #region_name: ""       # configmap/common/region_name
+          test: {}
+            #password: ""          # secret/openstack/common/cinder.identity.test.password
+            #region_name: ""       # configmap/common/region_name
+      oslo_db:
+        auth:
+          admin: {}
+            #password: ""          # secret/openstack/common/mariadb.admin.password
+          cinder: {}
+            #password: ""          # secret/openstack/common/cinder.oslo_db.cinder.password
+      oslo_cache:
+        auth: {}
+          #memcache_secret_key: "" # secret/openstack/common/keystone.oslo_cache.memcache_secret_key
+      oslo_messaging:
+        auth:
+          admin:
+            username: rabbitmq-admin
+            #password: ""          # secret/openstack/common/rabbitmq.admin.password
+          cinder:
+            username: cinder-rabbitmq-user
+            #password: ""          # secret/openstack/common/cinder.oslo_messaging.cinder.password
+        statefulset:
+          replicas: 3
+          name: openstack-rabbitmq-rabbitmq
+    labels:
+      api: &common-labels
+        node_selector_key: openstack-control-plane
+        node_selector_value: enabled
+      backup: *common-labels
+      job: *common-labels
+      scheduler: *common-labels
+      volume: *common-labels
+    #pod:
+    #  replicas:
+    #    api: 3
+    #    volume: 1
+    #    scheduler: 1
+    #    backup: 1
+    conf:
+      cinder:
+        DEFAULT:
+          debug: true
+          verbose: true
+          enabled_backends: *default-cinder-ceph-backend
+          default_volume_type: *default-cinder-ceph-backend
+          backup_driver: "cinder.backup.drivers.ceph.CephBackupDriver"
+          backup_ceph_user: cinder-backup.it4i       # expands client.*
+          backup_ceph_pool: cloud-cinder-it4i-backup
+          #os_region_name: ""    # configmap/openstack/common/region_name
+      backends:
+        # disable default backend naming
+        rbd1: {}
+        # specify correctly named cinder backend
+        du-ceph-cl3:
+          volume_driver: cinder.volume.drivers.rbd.RBDDriver
+          volume_backend_name: *default-cinder-ceph-backend
+          rbd_flatten_volume_from_snapshot: false
+          rbd_ceph_conf: "/etc/ceph/ceph.conf"
+          rbd_pool: cloud-cinder-volumes-it4i
+          rbd_user: cinder.it4i                      # expands client.*
+          #rbd_secret_uuid: ""   # configmap/openstack/common/cinder.conf.backends.du-ceph-cl3.rbd_secret_uuid
+          report_discard_supported: true
+          rbd_max_clone_depth: 5
+          rbd_store_chunk_size: 8
+          rados_connect_timeout: -1
+          image_volume_cache_enabled: True
+          image_volume_cache_max_size_gb: 200
+          image_volume_cache_max_count: 50
+
+#      policy: |
+#        "admin_or_owner_uploader": "is_admin:True or (role:admin and is_admin_project:True) or (project_id:%(project_id)s and role:image_uploader)"
+#        "volume_extension:volume_actions:upload_image": "rule:admin_or_owner_uploader"
+
+    # disable cinder and cinder-backup storage-init scripts
+    # as users and pools are pre-created
+    manifests:
+      job_backup_storage_init: false
+      job_storage_init: false
+    # avoid deps on disabled jobs
+    dependencies:
+      static:
+        api:
+          jobs: &cinder-main-app-common-deps
+            - cinder-db-sync
+            - cinder-ks-user
+            - cinder-ks-endpoints
+            - cinder-rabbit-init
+            #- cinder-storage-init
+        backup:
+          jobs: *cinder-main-app-common-deps
+        scheduler:
+          jobs: *cinder-main-app-common-deps
+        volume:
+          jobs: *cinder-main-app-common-deps
+        volume_usage_audit:
+          jobs: *cinder-main-app-common-deps

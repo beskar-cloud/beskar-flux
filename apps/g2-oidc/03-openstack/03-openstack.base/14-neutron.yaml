@@ -1,0 +1,234 @@
+kind: HelmRelease
+apiVersion: helm.toolkit.fluxcd.io/v2beta1
+metadata:
+  name: neutron
+  namespace: openstack
+spec:
+  interval: 5m
+  dependsOn:
+  - name: "cinder"
+    namespace: "openstack"
+  targetNamespace: openstack
+  storageNamespace: openstack
+  chart:
+    spec:
+      chart: neutron
+      sourceRef:
+        kind: GitRepository
+        name: openstack-helm
+        namespace: default 
+      interval: 1m
+  install:
+    disableWait: true
+  upgrade:
+    disableWait: true
+  valuesFrom:
+  - kind: Secret
+    name: common
+    valuesKey: keystone.identity.admin.password
+    targetPath: endpoints.identity.auth.admin.password
+  - kind: ConfigMap
+    name: common
+    valuesKey: region_name
+    targetPath: endpoints.identity.auth.admin.region_name
+  - kind: Secret
+    name: common
+    valuesKey: nova.identity.neutron.password
+    targetPath: endpoints.identity.auth.neutron.password
+  - kind: ConfigMap
+    name: common
+    valuesKey: region_name
+    targetPath: endpoints.identity.auth.neutron.region_name
+  - kind: Secret
+    name: common
+    valuesKey: nova.identity.nova.password
+    targetPath: endpoints.identity.auth.nova.password
+  - kind: ConfigMap
+    name: common
+    valuesKey: region_name
+    targetPath: endpoints.identity.auth.nova.region_name
+  - kind: Secret
+    name: common
+    valuesKey: neutron.identity.test.password
+    targetPath: endpoints.identity.auth.test.password
+  - kind: ConfigMap
+    name: common
+    valuesKey: region_name
+    targetPath: endpoints.identity.auth.test.region_name
+  - kind: Secret
+    name: common
+    valuesKey: mariadb.admin.password
+    targetPath: endpoints.oslo_db.auth.admin.password
+  - kind: Secret
+    name: common
+    valuesKey: neutron.oslo_db.neutron.password
+    targetPath: endpoints.oslo_db.auth.neutron.password
+  - kind: Secret
+    name: common
+    valuesKey: keystone.oslo_cache.memcache_secret_key
+    targetPath: endpoints.oslo_cache.auth.memcache_secret_key
+  - kind: Secret
+    name: common
+    valuesKey: rabbitmq.admin.password
+    targetPath: endpoints.oslo_messaging.auth.admin.password
+  - kind: Secret
+    name: common
+    valuesKey: neutron.oslo_messaging.neutron.password
+    targetPath: endpoints.oslo_messaging.auth.neutron.password
+  - kind: Secret
+    name: common
+    valuesKey: nova.conf.neutron.metadata_proxy_shared_secret
+    targetPath: conf.metadata_agent.DEFAULT.metadata_proxy_shared_secret
+  # https://github.com/beskar-cloud/openstack-helm/blob/main/neutron/values.yaml
+  values:
+    images:
+      tags:
+        bootstrap: &img_heat docker.io/openstackhelm/heat:yoga-ubuntu_focal-20230526
+        test: docker.io/xrally/xrally-openstack:2.0.0
+        purge_test: docker.io/openstackhelm/ospurge:latest
+        db_init: *img_heat
+        neutron_db_sync: &img_neutron docker.io/openstackhelm/neutron:yoga-ubuntu_focal-20230526
+        db_drop: *img_heat
+        rabbit_init: docker.io/rabbitmq:3.9-management
+        ks_user: *img_heat
+        ks_service: *img_heat
+        ks_endpoints: *img_heat
+        neutron_server: *img_neutron
+        neutron_dhcp: *img_neutron
+        neutron_metadata: *img_neutron
+        neutron_l3: *img_neutron
+        neutron_l2gw: *img_neutron
+        neutron_openvswitch_agent: *img_neutron
+        neutron_linuxbridge_agent: *img_neutron
+        neutron_sriov_agent: docker.io/openstackhelm/neutron:wallaby-18.04-sriov
+        neutron_sriov_agent_init: docker.io/openstackhelm/neutron:wallaby-18.04-sriov
+        neutron_bagpipe_bgp: *img_neutron
+        neutron_ironic_agent: *img_neutron
+        neutron_netns_cleanup_cron: *img_neutron
+        dep_check: quay.io/airshipit/kubernetes-entrypoint:v1.0.0
+      pull_policy: "Always"
+    endpoints:
+      network:
+        scheme:
+          public: https
+        port:
+          api:
+            public: 443
+        hosts:
+          public: null
+        host_fqdn_override:
+          public: network.ostrava.openstack.cloud.dev
+      identity:
+        auth:
+          admin: {}
+            #password: ""          # secret/openstack/common/keystone.identity.admin.password
+            #region_name: ""       # configmap/common/region_name
+          neutron: {}
+            #password: ""          # secret/openstack/common/nova.identity.neutron.password
+            #region_name: ""       # configmap/common/region_name
+          nova: {}
+            #password: ""          # secret/openstack/common/nova.identity.nova.password
+            #region_name: ""       # configmap/common/region_name
+          test: {}
+            #password: ""          # secret/openstack/common/neutron.identity.test.password
+            #region_name: ""       # configmap/common/region_name
+      oslo_db:
+        auth:
+          admin: {}
+            #password: ""          # secret/openstack/common/mariadb.admin.password
+          neutron:
+            #password: ""          # secret/openstack/common/neutron.oslo_db.neutron.password
+      oslo_cache:
+        auth: {}
+          #memcache_secret_key: "" # secret/openstack/common/keystone.oslo_cache.memcache_secret_key
+      oslo_messaging:
+        auth:
+          admin:
+            username: rabbitmq-admin
+            #password: ""          # secret/openstack/common/rabbitmq.admin.password
+          neutron:
+            username: neutron-rabbitmq-user
+            #password: ""          # secret/openstack/common/neutron.oslo_messaging.neutron.password
+        statefulset:
+          replicas: 3
+          name: openstack-rabbitmq-rabbitmq
+    pod:
+      replicas:
+        server: 3
+      probes:
+        dhcp_agent:
+          dhcp_agent:
+            readiness:
+              enabled: false
+            liveness:
+              enabled: false
+        l3_agent:
+          l3_agent:
+            readiness:
+              enabled: false
+            liveness:
+              enabled: false
+        metadata_agent:
+          metadata_agent:
+            readiness:
+              enabled: false
+            liveness:
+              enabled: false
+        ovs_agent:
+          ovs_agent:
+            liveness:
+              enabled: false
+        sriov_agent:
+          sriov_agent:
+            readiness:
+              enabled: false
+    labels:
+      agent:
+        dhcp: &compute-labels
+          node_selector_key: openstack-compute-node
+          node_selector_value: enabled
+        l3: *compute-labels
+        metadata: *compute-labels
+      job: *compute-labels
+      netns_cleanup_cron: *compute-labels
+      lb:
+        node_selector_key: linuxbridge
+        node_selector_value: enabled
+      # ovs is a special case, requiring a special
+      # label that can apply to both control hosts
+      # and compute hosts, until we get more sophisticated
+      # with our daemonset scheduling
+      ovs:
+        node_selector_key: openvswitch
+        node_selector_value: enabled
+      server: &controlplane-labels
+        node_selector_key: openstack-control-plane
+        node_selector_value: enabled
+      test: *controlplane-labels
+    network:
+      server:
+        node_port:
+          enabled: true
+      #auto_bridge_add:
+      #  br-ex: ens3
+      interface:
+        tunnel: ens3
+    conf:
+      metadata_agent:
+        DEFAULT: {}
+          #metadata_proxy_shared_secret: "" # secret/openstack/common/nova.conf.neutron.metadata_proxy_shared_secret
+      plugins:
+        ml2_conf:
+          ml2_type_vlan:
+            network_vlan_ranges: provider
+      neutron:
+        quotas:
+          quota_network: 1
+          quota_subnet: 1
+          quota_port: 10
+          quota_router: 0
+          quota_floatingip: 1
+          quota_security_group: 10
+          quota_security_group_rule: 100
+
+

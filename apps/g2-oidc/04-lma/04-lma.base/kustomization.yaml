@@ -1,0 +1,19 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - 00-namespace.yaml
+  - 00-common-configmap.yaml
+  - 00-common-encryptedsecret.yaml
+  - 00-callico-node-service.yaml
+  - 01-mariadb.yaml
+  - 03-node-exporter.yaml
+  - 04-kube-state-metrics.yaml
+  - 07-prometheus.yaml
+  - 07-oauth2-proxy-prometheus.yaml
+  - 08-alertmanager.yaml
+  - 08-oauth2-proxy-alertmanager.yaml
+  - 09-grafana.yaml
+  - 09-oauth2-proxy-grafana.yaml
+  - 10-pushgateway.yaml
+  - 11-loki-stack.yaml
+

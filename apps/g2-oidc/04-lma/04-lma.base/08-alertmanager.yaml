@@ -1,0 +1,260 @@
+kind: HelmRelease
+apiVersion: helm.toolkit.fluxcd.io/v2beta1
+metadata:
+  name: alertmanager
+  namespace: &ns osh-infra
+spec:
+  interval: 5m
+  dependsOn:
+  - name: prometheus
+    namespace: *ns
+  targetNamespace: *ns
+  storageNamespace: *ns
+  chart:
+    spec:
+      chart: prometheus-alertmanager
+      sourceRef:
+        kind: GitRepository
+        name: custom-helm-charts
+        namespace: default 
+      interval: 1m
+  valuesFrom:
+  - kind: Secret
+    name: common
+    valuesKey: alertmanager.slack.channel.webhook.url
+    targetPath: conf.alertmanager_slack_webhook_url
+  values:
+    images:
+      tags:
+        prometheus-alertmanager: registry.gitlab.ics.muni.cz:443/cloud/container-registry/alertmanager:v0.23.0
+        dep_check: registry.gitlab.ics.muni.cz:443/cloud/g2/container-registry/docker.itera.io__stackanetes__kubernetes-entrypoint:v1.0.0 
+    manifests:
+      ingress: false
+      service_ingress: false
+    network:
+      alertmanager:
+        node_port:
+          enabled: true
+          port: 30903
+    labels:
+      alertmanager:
+        node_selector_key: openstack-control-plane
+        node_selector_value: enabled
+      job:
+        node_selector_key: openstack-control-plane
+        node_selector_value: enabled
+    storage:
+      alertmanager:
+        storage_class: external-ceph-rbd-cloud-ceph-blockpool-it4i-backup
+    # scrape alertmanager on 9093 only (not on mesh port 9094)
+    monitoring:
+      prometheus:
+        prometheus:
+          port: 9093
+    conf:
+      #alertmanager_slack_webhook_url: secret/common/alertmanager.slack.channel.webhook.url
+      alertmanager: |
+        global:
+        # The directory from which notification templates are read.
+        templates:
+          - '/etc/alertmanager/template/*.tmpl'
+        # The root route on which each incoming alert enters.
+        route:
+          # The labels by which incoming alerts are grouped together. For example,
+          # multiple alerts coming in for cluster=A and alertname=LatencyHigh would
+          # be batched into a single group.
+          group_by:
+            - alertname
+            - cluster
+            - service
+            - environment
+          # When a new group of alerts is created by an incoming alert, wait at
+          # least 'group_wait' to send the initial notification.
+          # This way ensures that you get multiple alerts for the same group that start
+          # firing shortly after another are batched together on the first
+          # notification.
+          group_wait: 30s
+          # When the first notification was sent, wait 'group_interval' to send a batch
+          # of new alerts that started firing for that group.
+          group_interval: 5m
+          # If an alert has successfully been sent, wait 'repeat_interval' to
+          # resend them.
+          repeat_interval: 3h
+          # A default receiver
+          receiver: 'slack-alerts'
+          # All the above attributes are inherited by all child routes and can
+          # overwritten on each.
+          # The child route trees.
+          routes: []
+        # Inhibition rules allow to mute a set of alerts given that another alert is
+        # firing.
+        # We use this to mute any warning-level notifications if the same alert is
+        # already critical.
+        inhibit_rules:
+        # * If InhibitComputeNodeDisabled fires then all warning/critical alerts on that node (label hostname) are muted
+        - source_matchers:
+          - '{alertname="InhibitComputeNodeDisabled"}'
+          target_matchers:
+          - '{severity=~"warning|critical"}'
+          equal:
+          - 'hostname'
+        # * If InhibitPrometheusSettlingUp fires then all warning/critical alerts in same environment are muted
+        - source_matchers:
+          - '{alertname="InhibitPrometheusSettlingUp"}'
+          target_matchers:
+          - '{severity=~"warning|critical"}'
+          equal:
+          - 'environment'
+        receivers:
+        - name: 'slack-alerts'
+          slack_configs:
+          - send_resolved: true
+            api_url: {{ .Values.conf.alertmanager_slack_webhook_url }}
+            channel: cloud_alerts_prod_ostrava
+            title: '{_{ template "slack.msg.title" . }_}'
+            icon_emoji: '{_{ template "slack.msg.icon_emoji" . }_}'
+            color: '{_{ template "slack.msg.color" . }_}'
+            text: '{_{ template "slack.msg.text" . }_}'
+      alert_templates: |
+        # note this is templated by alertmanager itself (golang templating)
+        # See details at https://prometheus.io/docs/alerting/latest/notification_examples/#defining-reusable-templates
+        # Inspired by https://gist.github.com/milesbxf/e2744fc90e9c41b47aa47925f8ff6512
+
+        # support attributes
+        ## severity prefix from .Labels.severity
+        {_{ define "__alert_severity_prefix" -}_}
+            {_{ if ne .Status "firing" -}_}
+            :resolved:
+            {_{- else if eq .Labels.severity "critical" -}_}
+            :fire:
+            {_{- else if eq .Labels.severity "warning" -}_}
+            :warning:
+            {_{- else -}_}
+            :question:
+            {_{- end }_}
+        {_{- end }_}
+
+        ## severity prefix from .CommonLabels.severity
+        {_{ define "__alert_severity_prefix_title" -}_}
+            {_{ if ne .Status "firing" -}_}
+            :resolved:
+            {_{- else if eq .CommonLabels.severity "critical" -}_}
+            :fire:
+            {_{- else if eq .CommonLabels.severity "warning" -}_}
+            :warning:
+            {_{- else if eq .CommonLabels.severity "info" -}_}
+            :information_source:
+            {_{- else -}_}
+            :question:
+            {_{- end }_}
+        {_{- end }_}
+
+        ## silence link
+        {_{ define "__alert_silence_link" -}_}
+            {_{ .ExternalURL }_}/#/silences/new?filter=%7B
+            {_{- range .CommonLabels.SortedPairs -}_}
+                {_{- if ne .Name "alertname" -}_}
+                    {_{- .Name }_}%3D"{_{- .Value -}_}"%2C%20
+                {_{- end -}_}
+            {_{- end -}_}
+            alertname%3D"{_{ .CommonLabels.alertname }_}"%7D
+        {_{- end }_}
+
+        ## runbook link
+        {_{ define "__runbook_base_link" }_}https://gitlab.ics.muni.cz/cloud/knowledgebase/-/blob/master{_{ end }_}
+
+        {_{ define "__format_alert_common_labels" -}_}
+            {_{- $cl := .CommonLabels }_}
+            {_{- if gt (len $cl) 0 }_}
+
+        *Common labels:*
+                {_{- range $cl.SortedPairs }_}
+        * `{_{ .Name }_}`: `{_{ .Value }_}`
+                {_{- end }_}
+            {_{- end }_}
+        {_{- end }_}
+
+        {_{ define "__format_alert_common_annotations" -}_}
+            {_{- $ca := .CommonAnnotations }_}
+            {_{- if gt (len $ca) 0 }_}
+
+        *Common annotations:*
+                {_{- range $ca.SortedPairs }_}
+                    {_{- if eq .Name "runbook" }_}
+                        {_{- if eq (slice .Value 0 9) "runbooks/" }_}
+        * `{_{ .Name }_}`: <{_{ template "__runbook_base_link" . }_}/{_{ .Value }_}|{_{ .Value }_}>
+                        {_{- else }_}
+        * `{_{ .Name }_}`: {_{ .Value }_}
+                        {_{- end }_}
+                    {_{- else }_}
+        * `{_{ .Name }_}`: {_{ .Value }_}
+                    {_{- end }_}
+                {_{- end }_}
+            {_{- end }_}
+        {_{- end }_}
+
+
+        {_{ define "__format_alert_specific_labels" -}_}
+
+        *Specific labels:*
+        * TODO
+        {_{- end }_}
+
+        {_{ define "__format_links" -}_}
+
+        *Related links:* <{_{ .ExternalURL }_}/#/alerts?silenced=false&inhibited=false&active=true&filter=%7Balertname%3D%22{_{ .CommonLabels.alertname }_}%22%7D|Alertmanager> <{_{ with index .Alerts 0 }_}{_{ .GeneratorURL }_}{_{ end }_}|Prometheus>
+        {_{- end }_}
+
+        {_{ define "__format_alert_description" -}_}
+
+            {_{- $alertCount := len .Alerts }_}
+            {_{- if .CommonAnnotations.description }_}
+        {_{ .CommonAnnotations.description }_}
+            {_{- end -}_}
+
+        {_{- end }_}
+
+        # Slack alert 1st line
+        {_{ define "slack.msg.title" -}_}
+            [{_{ .Status | toUpper -}_}
+            {_{ if eq .Status "firing" }_}:{_{ .Alerts.Firing | len }_}{_{- end -}_}
+            ] {_{ template "__alert_severity_prefix_title" . }_} {_{ .CommonLabels.alertname }_} {_{- if .CommonAnnotations.summary }_} - {_{ .CommonAnnotations.summary }_}{_{- end }_}
+        {_{- end }_}
+
+        # Slack notification left color
+        {_{ define "slack.msg.color" -}_}
+            {_{ if eq .Status "firing" -}_}
+                {_{ if eq .CommonLabels.severity "warning" -}_}
+                    warning
+                {_{- else if eq .CommonLabels.severity "critical" -}_}
+                    danger
+                {_{- else -}_}
+                    #439FE0
+                {_{- end -}_}
+            {_{ else -}_}
+            good
+            {_{- end }_}
+        {_{- end }_}
+
+        # Slack notification icon
+        {_{ define "slack.msg.icon_emoji" }_}:rotating_light:{_{ end }_}
+
+        # Slack notification text
+        {_{ define "slack.msg.text" -}_}
+        {_{ template "__format_alert_description" . }_}
+            {_{- if eq .Status "firing" }_}
+        {_{ template "__format_links" . }_}
+        {_{ template "__format_alert_common_labels" . }_}
+        {_{ template "__format_alert_common_annotations" . }_}
+            {_{- end }_}
+        {_{- end }_}
+
+        {_{ define "slack.monzo.link_button_text" -}_}
+            {_{- if .CommonAnnotations.link_text -}_}
+                {_{- .CommonAnnotations.link_text -}_}
+            {_{- else -}_}
+                Link
+            {_{- end }_} :link:
+        {_{- end }_}
+
+

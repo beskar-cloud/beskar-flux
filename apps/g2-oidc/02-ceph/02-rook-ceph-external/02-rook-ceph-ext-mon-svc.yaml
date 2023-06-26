@@ -1,0 +1,31 @@
+kind: HelmRelease
+apiVersion: helm.toolkit.fluxcd.io/v2beta1
+metadata:
+  name: rook-ceph-ext-mon-svc
+  namespace: &ns rook-ceph-external
+spec:
+  interval: 5m
+  dependsOn:
+  - name: "rook-ceph-operator"
+    namespace: rook-ceph
+  targetNamespace: *ns
+  storageNamespace: *ns
+  chart:
+    spec:
+      chart: rook-ceph-ext-mon-svc
+      sourceRef:
+        kind: GitRepository
+        name: custom-helm-charts
+        namespace: default
+      interval: 1m
+  values:
+    endpoints:
+      cephMonitors: &common-endpoints
+        name: ceph-mon
+        addresses:
+        - ip: 78.1.2.240
+        - ip: 78.1.2.241
+        - ip: 78.1.2.242
+      cephMonitorsForDiscovery:
+        <<: *common-endpoints
+        name: ceph-mon-discovery

@@ -1,0 +1,132 @@
+kind: HelmRelease
+apiVersion: helm.toolkit.fluxcd.io/v2beta1
+metadata:
+  name: barbican
+  namespace: openstack
+spec:
+  interval: 5m
+  dependsOn:
+  - name: "heat"
+    namespace: "openstack"
+  targetNamespace: openstack
+  storageNamespace: openstack
+  chart:
+    spec:
+      chart: barbican
+      sourceRef:
+        kind: GitRepository
+        name: openstack-helm
+        namespace: default
+      interval: 1m
+  valuesFrom:
+  - kind: Secret
+    name: common
+    valuesKey: keystone.identity.admin.password
+    targetPath: endpoints.identity.auth.admin.password
+  - kind: ConfigMap
+    name: common
+    valuesKey: region_name
+    targetPath: endpoints.identity.auth.admin.region_name
+  - kind: Secret
+    name: common
+    valuesKey: barbican.identity.barbican.password
+    targetPath: endpoints.identity.auth.barbican.password
+  - kind: ConfigMap
+    name: common
+    valuesKey: region_name
+    targetPath: endpoints.identity.auth.barbican.region_name
+  - kind: Secret
+    name: common
+    valuesKey: mariadb.admin.password
+    targetPath: endpoints.oslo_db.auth.admin.password
+  - kind: Secret
+    name: common
+    valuesKey: barbican.oslo_db.barbican.password
+    targetPath: endpoints.oslo_db.auth.barbican.password
+  - kind: Secret
+    name: common
+    valuesKey: keystone.oslo_cache.memcache_secret_key
+    targetPath: endpoints.oslo_cache.auth.memcache_secret_key
+  - kind: Secret
+    name: common
+    valuesKey: rabbitmq.admin.password
+    targetPath: endpoints.oslo_messaging.auth.admin.password
+  - kind: Secret
+    name: common
+    valuesKey: barbican.oslo_messaging.barbican.password
+    targetPath: endpoints.oslo_messaging.auth.barbican.password
+  # https://github.com/beskar-cloud/openstack-helm/blob/main/barbican/values.yaml
+  values:
+    network:
+      api:
+        node_port:
+          enabled: true
+        ingress:
+          public: false
+    images:
+      tags:
+        bootstrap: &img_heat docker.io/openstackhelm/heat:yoga-ubuntu_focal-20230526
+        dep_check: docker.itera.io/stackanetes/kubernetes-entrypoint:v1.0.0
+        scripted_test: *img_heat
+        db_init:  *img_heat
+        barbican_db_sync: &img_barbican docker.io/openstackhelm/barbican:yoga-ubuntu_focal-20230526
+        db_drop: *img_heat
+        ks_user: *img_heat
+        ks_service: *img_heat
+        ks_endpoints: *img_heat
+        barbican_api: *img_barbican
+    endpoints:
+      key_manager:
+        scheme:
+          public: https
+        port:
+          api:
+            public: 443
+        hosts:
+          public: null
+        host_fqdn_override:
+          public: key-manager.ostrava.openstack.cloud.dev
+      identity:
+        auth:
+          admin: {}
+            #password: ""          # secret/openstack/common/keystone.identity.admin.password
+            #region_name: ""       # configmap/common/region_name
+          barbican: {}
+            #password: ""          # secret/openstack/common/barbican.identity.barbican.password
+            #region_name: ""       # configmap/common/region_name
+      oslo_db:
+        auth:
+          admin: {}
+            #password: ""          # secret/openstack/common/mariadb.admin.password
+          barbican: {}
+            #password: ""          # secret/openstack/common/barbican.oslo_db.barbican.password
+      oslo_cache:
+        auth: {}
+          #memcache_secret_key: "" # secret/openstack/common/keystone.oslo_cache.memcache_secret_key
+      oslo_messaging:
+        auth:
+          admin:
+            username: rabbitmq-admin
+            #password: ""          # secret/openstack/common/rabbitmq.admin.password
+          barbican:
+            username: barbican-rabbitmq-user
+            #password: ""          # secret/openstack/common/barbican.oslo_messaging.barbican.password
+        statefulset:
+          replicas: 3
+          name: openstack-rabbitmq-rabbitmq
+    labels:
+      api:
+        node_selector_key: openstack-control-plane
+        node_selector_value: enabled
+      job:
+        node_selector_key: openstack-control-plane
+        node_selector_value: enabled
+    #pod:
+    #  replicas:
+    #    api: 3
+#    conf:
+#      policy: |
+#        "container_secret:post": "rule:admin_or_creator"
+#        "project_quotas:get": "rule:admin"
+#        "project_quotas:put": "rule:admin"
+#        "project_quotas:delete": "rule:admin"

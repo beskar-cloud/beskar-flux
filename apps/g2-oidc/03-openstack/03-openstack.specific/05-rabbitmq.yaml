@@ -1,0 +1,11 @@
+kind: HelmRelease
+apiVersion: helm.toolkit.fluxcd.io/v2beta1
+metadata:
+  name: rabbitmq
+  namespace: openstack
+spec:
+  # https://github.com/beskar-cloud/openstack-helm-infra/blob/main/rabbitmq/values.yaml
+  values:
+    volume:
+      class_name: external-ceph-rbd-cloud-ceph-blockpool-it4i
+      size: 1024Mi

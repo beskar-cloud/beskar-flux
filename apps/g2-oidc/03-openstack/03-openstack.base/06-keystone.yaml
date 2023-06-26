@@ -1,0 +1,256 @@
+kind: HelmRelease
+apiVersion: helm.toolkit.fluxcd.io/v2beta1
+metadata:
+  name: keystone
+  namespace: &ns openstack
+spec:
+  interval: 10m
+  dependsOn:
+  - name: "rabbitmq"
+    namespace: *ns
+  targetNamespace: *ns
+  storageNamespace: *ns
+  chart:
+    spec:
+      chart: keystone
+      sourceRef:
+        kind: GitRepository
+        name: openstack-helm
+        namespace: default
+      interval: 1m
+  install:
+    disableWait: true
+  upgrade:
+    disableWait: true
+  valuesFrom:
+  - kind: Secret
+    name: common
+    valuesKey: keystone.identity.admin.password
+    targetPath: endpoints.identity.auth.admin.password
+  - kind: ConfigMap
+    name: common
+    valuesKey: region_name
+    targetPath: endpoints.identity.auth.admin.region_name
+  - kind: Secret
+    name: common
+    valuesKey: keystone.identity.test.password
+    targetPath: endpoints.identity.auth.test.password
+  - kind: ConfigMap
+    name: common
+    valuesKey: region_name
+    targetPath: endpoints.identity.auth.test.region_name
+  - kind: Secret
+    name: common
+    valuesKey: keystone.oslo_cache.memcache_secret_key
+    targetPath: endpoints.oslo_cache.auth.memcache_secret_key
+  - kind: Secret
+    name: common
+    valuesKey: mariadb.admin.password
+    targetPath: endpoints.oslo_db.auth.admin.password
+  - kind: Secret
+    name: common
+    valuesKey: keystone.oslo_db.keystone.password
+    targetPath: endpoints.oslo_db.auth.keystone.password
+  - kind: Secret
+    name: common
+    valuesKey: rabbitmq.admin.password
+    targetPath: endpoints.oslo_messaging.auth.admin.password
+  - kind: Secret
+    name: common
+    valuesKey: keystone.oslo_messaging.keystone.password
+    targetPath: endpoints.oslo_messaging.auth.keystone.password
+  - kind: Secret
+    name: keystone-apache-oidc-metadata
+    valuesKey: oidc_crypto_passphrase
+    targetPath: conf.wsgi_keystone_values.oidc_crypto_passphrase
+  - kind: Secret
+    name: keystone-apache-oidc-metadata
+    valuesKey: oidc_api_client_id
+    targetPath: conf.wsgi_keystone_values.oidc_api_client_id
+  - kind: Secret
+    name: keystone-apache-oidc-metadata
+    valuesKey: oidc_api_client_secret
+    targetPath: conf.wsgi_keystone_values.oidc_api_client_secret
+  - kind: Secret
+    name: keystone-apache-oidc-metadata
+    valuesKey: oidc_api_client_id
+    targetPath: conf.software.apache2.oidc_providers.login_e_infra_cz.client_id
+  - kind: Secret
+    name: keystone-apache-oidc-metadata
+    valuesKey: oidc_api_client_secret
+    targetPath: conf.software.apache2.oidc_providers.login_e_infra_cz.client_secret
+  # https://github.com/beskar-cloud/openstack-helm/blob/main/keystone/values.yaml
+  values:
+    network:
+      api:
+        node_port:
+          enabled: true 
+    images:
+      tags:
+        bootstrap: &img_heat docker.io/openstackhelm/heat:yoga-ubuntu_focal-20230526
+        test: docker.io/xrally/xrally-openstack:2.0.0
+        db_init: *img_heat
+        keystone_db_sync: &img_keystone registry.gitlab.ics.muni.cz:443/cloud/g2/container-registry/keystone:periodic_yoga-ubuntu_focal-20220729-1 # docker.io/openstackhelm/keystone:periodic_yoga-ubuntu_focal-20220729
+        db_drop: *img_heat
+        ks_user: *img_heat
+        rabbit_init: docker.io/library/rabbitmq:3.9.29-management
+        keystone_fernet_setup: *img_keystone
+        keystone_fernet_rotate: *img_keystone
+        keystone_credential_setup: *img_keystone
+        keystone_credential_rotate: *img_keystone
+        keystone_credential_cleanup: *img_keystone
+        keystone_api: *img_keystone
+        keystone_domain_manage: *img_keystone
+        dep_check: quay.io/airshipit/kubernetes-entrypoint:v1.0.0
+    endpoints:
+      identity:
+        name: keystone
+        namespace: *ns
+        # define public endpoint
+        scheme:
+          public: https
+        port:
+          api:
+            public: 443
+        host_fqdn_override:
+          public: identity.ostrava.openstack.cloud.dev
+        auth:
+          admin: {}
+            #password: ""            # secret/openstack/common/keystone.identity.admin.password
+            #region_name: ""         # configmap/common/region_name
+          test: {}
+            #password: ""            # secret/openstack/common/keystone.identity.test.password
+            #region_name: ""         # configmap/common/region_name
+      oslo_cache:
+        auth: {}
+          #memcache_secret_key: ""   # secret/openstack/common/keystone.oslo_cache.memcache_secret_key
+      oslo_db:
+        auth:
+          admin: {}
+            #password: ""            # secret/openstack/common/mariadb.admin.password
+          keystone: {}
+            #password: ""            # secret/openstack/common/keystone.oslo_db.keystone.password
+      oslo_messaging:
+        auth:
+          admin:
+            username: rabbitmq-admin
+            #password: ""            # secret/openstack/common/rabbitmq.admin.password
+          keystone:
+            username: keystone-rabbitmq-user
+            #password: ""            # secret/openstack/common/keystone.oslo_messaging.keystone.password
+        statefulset:
+          replicas: 3
+          name: openstack-rabbitmq-rabbitmq
+    labels:
+      api:
+        node_selector_key: openstack-control-plane
+        node_selector_value: enabled
+      job:
+        node_selector_key: openstack-control-plane
+        node_selector_value: enabled
+    pod:
+      replicas:
+        api: 3
+    conf:
+      software:
+        apache2:
+          oidc_metadata:
+            # apache2 OIDC provider configuration directory
+            # directory is to be added to apache2's OIDCMetadataDir
+            conf_dir: /etc/apache2/conf-enabled/oidc_metadata
+          oidc_providers:
+            login_e_infra_cz:
+              file_prefix: "login.e-infra.cz%2Foidc"
+              provider_url: "https://login.e-infra.cz/oidc/.well-known/openid-configuration"
+              scopes: "openid profile email offline_access eduperson_entitlement"
+              #client_id: ""         # secret/openstack/keystone-apache-oidc-metadata/oidc_api_client_id
+              #client_secret: ""     # secret/openstack/keystone-apache-oidc-metadata/oidc_api_client_secret
+      keystone:
+        DEFAULT:
+          public_endpoint: https://identity.ostrava.openstack.cloud.dev
+          use_forwarded_for: "True"
+        auth:
+          methods: password,token,mapped,application_credential,openid
+        federation:
+          trusted_dashboard: https://horizon.ostrava.openstack.cloud.dev/auth/websso/
+        openid:
+          remote_id_attribute: HTTP_OIDC_ISS
+        oidc:
+          remote_id_attribute: HTTP_OIDC_ISS
+        cors:
+          allowed_origin: "https://horizon.ostrava.openstack.cloud.dev"
+          max_age: "3600"
+          allow_methods: "GET,POST,PUT,DELETE"
+      wsgi_keystone_values: {}
+        #oidc_crypto_passphrase: ""  # secret/openstack/keystone-apache-oidc-metadata/oidc_crypto_passphrase
+        #oidc_api_client_id: ""      # secret/openstack/keystone-apache-oidc-metadata/oidc_api_client_id
+        #oidc_api_client_secret: ""  # secret/openstack/keystone-apache-oidc-metadata/oidc_api_client_secret
+      wsgi_keystone: |
+        Listen 0.0.0.0:5000
+
+        TraceEnable off
+
+        LogFormat "%h %l %u %t \"%r\" %>s %b \"%{Referer}i\" \"%{User-Agent}i\"" combined
+        LogFormat "%{X-Forwarded-For}i %l %u %t \"%r\" %>s %b \"%{Referer}i\" \"%{User-Agent}i\"" proxy
+
+        SetEnvIf X-Forwarded-For "^.*\..*\..*\..*" forwarded
+        CustomLog /dev/stdout combined env=!forwarded
+        CustomLog /dev/stdout proxy env=forwarded
+
+        <VirtualHost *:5000>
+            # ###################################################################
+            # GUI
+            # ###################################################################
+            OIDCMetadataDir /etc/apache2/conf-enabled/oidc_metadata
+            OIDCRedirectURI https://identity.ostrava.openstack.cloud.dev/oidc-callback
+            OIDCCryptoPassphrase {{ .Values.conf.wsgi_keystone_values.oidc_crypto_passphrase }}
+            OIDCClaimPrefix "OIDC-"
+            OIDCClaimDelimiter ";"
+            # Increase Shm cache size for long claims from EGI Check-in
+            OIDCCacheShmEntrySizeMax 131072
+
+            <Location "/oidc-callback">
+              AuthType openid-connect
+              Require valid-user
+            </Location>
+
+            <Location "/v3/auth/OS-FEDERATION/identity_providers/login.e-infra.cz/protocols/openid/websso">
+              AuthType openid-connect
+              OIDCDiscoverURL https://identity.ostrava.openstack.cloud.dev/oidc-callback?iss=https://login.e-infra.cz/oidc/
+              Require claim iss:https://login.e-infra.cz/oidc/
+            </Location>
+
+            # ###################################################################
+            # API
+            # ###################################################################
+            OIDCOAuthIntrospectionEndpoint https://login.e-infra.cz/oidc/v2/tokeninfo
+            #https://login.e-infra.cz/oidc/introspect
+            #https://controller-hw-001-ostack.priv.cloud.muni.cz:1443/v2/tokeninfo
+            OIDCOAuthClientID {{ .Values.conf.wsgi_keystone_values.oidc_api_client_id }}
+            OIDCOAuthClientSecret {{ .Values.conf.wsgi_keystone_values.oidc_api_client_secret }}
+            OIDCCacheEncrypt On
+
+            <Location "/v3/OS-FEDERATION/identity_providers/login.e-infra.cz/protocols/openid/auth">
+              AuthType oauth20
+              Require claim iss:https://login.e-infra.cz/oidc/
+            </Location>
+
+            #####################################################################
+            # WSGI APP
+            #####################################################################
+            WSGIDaemonProcess keystone-public processes=4 threads=1 user=keystone group=keystone display-name=%{GROUP}
+            WSGIProcessGroup keystone-public
+            WSGIScriptAlias / /var/www/cgi-bin/keystone/keystone-wsgi-public
+            WSGIApplicationGroup %{GLOBAL}
+            WSGIPassAuthorization On
+            <IfVersion >= 2.4>
+              ErrorLogFormat "%{cu}t %M"
+            </IfVersion>
+            ErrorLog /dev/stdout
+
+            SetEnvIf X-Forwarded-For "^.*\..*\..*\..*" forwarded
+            CustomLog /dev/stdout combined env=!forwarded
+            CustomLog /dev/stdout proxy env=forwarded
+        </VirtualHost>
+
+

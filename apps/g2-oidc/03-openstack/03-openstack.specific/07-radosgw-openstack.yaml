@@ -1,0 +1,49 @@
+kind: HelmRelease
+apiVersion: helm.toolkit.fluxcd.io/v2beta1
+metadata:
+  name: radosgw-openstack
+  namespace: &ns openstack
+spec:
+  values:
+    # additional log verbosity & rgw zone, zonegroup and realm
+    conf:
+      rgw:
+        config:
+          rgw_zone: &rgw-zone-zonegroup cloud-ceph-objectstore-it4i
+          rgw_zonegroup: *rgw-zone-zonegroup
+          rgw_args: "--rgw-realm=cloud-ceph-objectstore-it4i"
+      rgw_ks:
+        enabled: True
+      ceph:
+        global:
+          debug_ms: "1"
+          debug_rgw: "20"
+    # disable provisioners, ceph clients and storage-init
+    deployment:
+      ceph: True
+      rbd_provisioner: False
+      cephfs_provisioner: False
+      client_secrets: False
+    # ceph-rgw-storage-init job disabled (as bootstrap keyring is placed manually)
+    manifests:
+      job_ceph_rgw_storage_init: false
+      ingress_rgw: false
+    # rgw does not depend on ceph-rgw-storage-init (as bootstrap keyring is placed manually)
+    dependencies:
+      static:
+        rgw:
+          jobs: []
+    # define custom endpoints to minimize DNS hops and define external URLs
+    endpoints:
+      identity:
+        host_fqdn_override:
+          internal: keystone-api
+      object_store:
+        scheme:
+          public: https
+        port:
+          api:
+            public: 443
+        host_fqdn_override:
+          public: object-store.ostrava.openstack.cloud.dev
+          private: ceph-rgw
