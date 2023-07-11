@@ -45,5 +45,3 @@ spec:
     enableDiscoveryDaemon: false
     monitoring:
       enabled: true
-
-

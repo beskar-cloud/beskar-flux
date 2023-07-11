@@ -73,4 +73,3 @@ spec:
         node_selector_value: enabled
     bootstrap:
       enabled: False
-

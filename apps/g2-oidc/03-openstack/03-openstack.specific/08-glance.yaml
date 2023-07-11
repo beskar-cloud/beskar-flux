@@ -38,4 +38,3 @@ spec:
       api:
         ingress:
           public: false
-

@@ -230,5 +230,3 @@ spec:
           quota_floatingip: 1
           quota_security_group: 10
           quota_security_group_rule: 100
-
-

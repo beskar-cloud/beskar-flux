@@ -252,5 +252,3 @@ spec:
             CustomLog /dev/stdout combined env=!forwarded
             CustomLog /dev/stdout proxy env=forwarded
         </VirtualHost>
-
-

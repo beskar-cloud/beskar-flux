@@ -134,12 +134,3 @@ spec:
         node_selector_value: enabled
       job: *common-labels
       registry: *common-labels
-    #pod:
-    #  replicas:
-    #    api: 3
-    #    registry: 2
-    # NOTE(portdirect): glance APIv1 is required for heat in Newton
-
-
-
-

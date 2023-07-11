@@ -148,12 +148,6 @@ spec:
       job: *common-labels
       scheduler: *common-labels
       volume: *common-labels
-    #pod:
-    #  replicas:
-    #    api: 3
-    #    volume: 1
-    #    scheduler: 1
-    #    backup: 1
     conf:
       cinder:
         DEFAULT:
@@ -184,11 +178,6 @@ spec:
           image_volume_cache_enabled: True
           image_volume_cache_max_size_gb: 200
           image_volume_cache_max_count: 50
-
-#      policy: |
-#        "admin_or_owner_uploader": "is_admin:True or (role:admin and is_admin_project:True) or (project_id:%(project_id)s and role:image_uploader)"
-#        "volume_extension:volume_actions:upload_image": "rule:admin_or_owner_uploader"
-
     # disable cinder and cinder-backup storage-init scripts
     # as users and pools are pre-created
     manifests:

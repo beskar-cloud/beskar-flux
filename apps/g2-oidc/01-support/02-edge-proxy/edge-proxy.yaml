@@ -19,16 +19,13 @@ spec:
   values:
     deployment:
       replicaCount: 3
-
     service:
       loadBalancerIP:
         ip: 195.3.5.91
       clusterIP: 10.233.45.85
-
     manifests:
       namespace: false
       certs_secret: false # re-use existing secret
-
     configuration:
       traefik-routes.yaml: |
         http:
