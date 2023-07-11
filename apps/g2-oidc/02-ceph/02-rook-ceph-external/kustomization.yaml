@@ -1,0 +1,15 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - 01-common-external.yaml
+  - 02-rook-ceph-ext-mon-svc.yaml
+  - 03-rgw-admin-ops-user-encryptedsecret.yaml
+  - 03-rook-ceph-mon-endpoints-configmap.yaml
+  - 03-rook-ceph-mon-encryptedsecret.yaml
+  - 03-cluster-external.yaml
+  - 04-rook-client-csi-rbd-node-ceph-cloud-ceph-blockpool-it4i-encryptedsecret.yaml
+  - 04-rook-client-csi-rbd-provisioner-ceph-cloud-ceph-blockpool-it4i-encryptedsecret.yaml
+  - 04-external-ceph-rbd-cloud-ceph-blockpool-it4i-storageclass.yaml
+  - 05-external-ceph-rbd-cloud-ceph-blockpool-it4i-backup-storageclass.yaml
+  - 05-rook-client-csi-rbd-node-ceph-cloud-ceph-blockpool-it4i-backup-encryptedsecret.yaml
+  - 05-rook-client-csi-rbd-prov-ceph-cloud-ceph-blockpool-it4i-backup-encryptedsecret.yaml

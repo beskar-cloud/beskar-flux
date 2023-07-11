@@ -1,0 +1,8 @@
+apiVersion: v1
+data:
+  cinder.conf.backends.du-ceph-cl3.rbd_secret_uuid: abcdef01-33da-42ec-9a8c-9293d545c337
+  region_name: Ostrava
+kind: ConfigMap
+metadata:
+  name: common
+  namespace: openstack

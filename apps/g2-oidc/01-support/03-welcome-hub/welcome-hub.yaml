@@ -1,0 +1,22 @@
+kind: HelmRelease
+apiVersion: helm.toolkit.fluxcd.io/v2beta1
+metadata:
+  name: welcome-hub
+  namespace: &ns welcome-hub
+spec:
+  interval: 5m
+  targetNamespace: *ns
+  storageNamespace: *ns
+  chart:
+    spec:
+      chart: welcome-hub
+      sourceRef:
+        kind: GitRepository
+        name: custom-helm-charts
+        namespace: default
+      interval: 1m
+  # https://github.com/beskar-cloud/custom-helm-charts/blob/main/welcome-hub/values.yaml
+  values:
+    image:
+      repository: registry.gitlab.ics.muni.cz:443/cloud/g2/welcomehub-ostrava
+      tag: "1.2.0"

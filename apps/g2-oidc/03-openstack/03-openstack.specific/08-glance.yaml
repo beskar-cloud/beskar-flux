@@ -1,0 +1,40 @@
+kind: HelmRelease
+apiVersion: helm.toolkit.fluxcd.io/v2beta1
+metadata:
+  name: glance
+  namespace: openstack
+spec:
+  values:
+    storage: rbd
+    conf:
+      glance:
+        DEFAULT:
+          enable_v1_api: true
+          show_multiple_locations: True
+          workers: 4
+        glance_store:
+          #store: "file"
+          rbd_store_chunk_size: 8
+          rbd_store_pool: cloud-glance-images-it4i
+          rbd_store_user: glance.it4i # auto-expanded to client.glance.it4i
+          rbd_store_ceph_conf: /etc/ceph/ceph.conf
+    # custom glance rbd configuration (i.e. ceph client and pool pre-created)
+    manifests:
+      job_storage_init: false
+      ingress_api: false
+      secret_ingress_tls: false
+      service_ingress_api: false
+    # avoid depending on disabled job
+    dependencies:
+      static:
+        api:
+          jobs:
+            - glance-db-sync
+            - glance-rabbit-init
+            - glance-ks-user
+            - glance-ks-endpoints
+            #- glance-storage-init
+    network:
+      api:
+        ingress:
+          public: false

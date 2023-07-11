@@ -1,0 +1,24 @@
+kind: HelmRelease
+apiVersion: helm.toolkit.fluxcd.io/v2beta1
+metadata:
+  name: ceph-cluster-config
+  namespace: &ns openstack
+spec:
+  interval: 5m
+  dependsOn:
+  - name: ingress-controller
+    namespace: *ns
+  targetNamespace: *ns
+  storageNamespace: *ns
+  chart:
+    spec:
+      chart: rook-ceph-cluster-config
+      sourceRef:
+        kind: GitRepository
+        name: custom-helm-charts
+        namespace: default 
+      interval: 1m
+  # https://github.com/beskar-cloud/custom-helm-charts/blob/main/rook-ceph-cluster-config/values.yaml
+  values:
+    cephMonitorService:
+      namespace: rook-ceph-external

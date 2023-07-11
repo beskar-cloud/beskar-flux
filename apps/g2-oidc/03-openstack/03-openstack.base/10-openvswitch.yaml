@@ -1,0 +1,31 @@
+kind: HelmRelease
+apiVersion: helm.toolkit.fluxcd.io/v2beta1
+metadata:
+  name: openvswitch
+  namespace: openstack
+spec:
+  interval: 5m
+  dependsOn:
+  - name: "cinder"
+    namespace: "openstack"
+  targetNamespace: openstack
+  storageNamespace: openstack
+  chart:
+    spec:
+      chart: openvswitch
+      sourceRef:
+        kind: GitRepository
+        name: openstack-helm-infra
+        namespace: default 
+      interval: 1m
+  # https://github.com/beskar-cloud/openstack-helm-infra/blob/main/openvswitch/values.yaml
+  values:
+    images:
+      tags:
+        openvswitch_db_server: &img_openvswitch docker.io/openstackhelm/openvswitch:ubuntu_focal-20230415
+        openvswitch_vswitchd: *img_openvswitch
+        dep_check: docker.itera.io/stackanetes/kubernetes-entrypoint:v1.0.0
+    labels:
+      ovs:
+        node_selector_key: openvswitch
+        node_selector_value: enabled

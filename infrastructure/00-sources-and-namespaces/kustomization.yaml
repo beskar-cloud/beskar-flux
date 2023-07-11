@@ -3,9 +3,11 @@ kind: Kustomization
 resources:
   - namespaces.yaml
   - cert-manager-helmrepository.yaml
-  - openstack-helm-repository.yaml
-  - openstack-helm-infra-repository.yaml
-  - rook-ceph-repository.yaml
+  - openstack-helm-gitrepository.yaml
+  - openstack-helm-infra-gitrepository.yaml
+  - rook-ceph-gitrepository.yaml
   - rook-ceph-helmrepository.yaml
-  - custom-helm-charts-repository.yaml
+  - custom-helm-charts-gitrepository.yaml
   - emberstack-helmrepository.yaml
+  - appuio-helmrepository.yaml
+  - loki-stack-gitrepository.yaml
