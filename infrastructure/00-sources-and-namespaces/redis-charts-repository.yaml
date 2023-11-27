@@ -1,0 +1,8 @@
+apiVersion: source.toolkit.fluxcd.io/v1beta2
+kind: HelmRepository
+metadata:
+  name: redis
+  namespace: default
+spec:
+  interval: 1h
+  url: https://repo.itera.io/repository/itera

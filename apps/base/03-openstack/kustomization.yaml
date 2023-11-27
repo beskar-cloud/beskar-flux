@@ -20,3 +20,4 @@ resources:
   - 16-openstack-horizon.yaml
   - 17-openstack-barbican.yaml
   - 18-openstack-prometheus-openstack-exporter.yaml
+  - 19-openstack-redis.yaml
