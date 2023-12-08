@@ -11,3 +11,4 @@ resources:
   - emberstack-helmrepository.yaml
   - appuio-helmrepository.yaml
   - loki-stack-gitrepository.yaml
+  - redis-charts-repository.yaml

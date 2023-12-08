@@ -1,0 +1,38 @@
+kind: HelmRelease
+apiVersion: helm.toolkit.fluxcd.io/v2beta1
+metadata:
+  name: redis
+  namespace: openstack
+spec:
+  interval: 5m
+  dependsOn:
+  - name: "barbican"
+    namespace: "openstack"
+  targetNamespace: openstack
+  storageNamespace: openstack
+  install:
+    disableWait: true
+  upgrade:
+    disableWait: true
+  chart:
+    spec:
+      chart: redis
+      reconcileStrategy: Revision
+      sourceRef:
+        kind: HelmRepository
+        name: redis
+        namespace: default
+      interval: 1m
+  values:
+    auth:
+      password: "qwDfZzkLaYsPn6vCe4x5yR"
+    replica:
+      nodeSelector:
+        openstack-control-plane: enabled
+    master:
+      nodeSelector:
+        openstack-control-plane: enabled
+      service:
+        type: NodePort
+        nodePorts:
+          redis: 31445

@@ -1,0 +1,199 @@
+kind: HelmRelease
+apiVersion: helm.toolkit.fluxcd.io/v2beta1
+metadata:
+  name: octavia
+  namespace: openstack
+spec:
+  interval: 5m
+  dependsOn:
+  - name: "redis"
+    namespace: "openstack"
+  targetNamespace: openstack
+  storageNamespace: openstack
+  install:
+    disableWait: true
+  upgrade:
+    disableWait: true
+  chart:
+    spec:
+      chart: octavia
+      reconcileStrategy: Revision
+      sourceRef:
+        kind: GitRepository
+        name: openstack-helm
+        namespace: default 
+      interval: 1m
+  values:
+    images:
+      tags:
+        test: docker.io/xrally/xrally-openstack:2.0.0
+        bootstrap: docker.io/hemsonawane/heat:latest-zed-ubuntu_focal
+        db_init: docker.io/hemsonawane/heat:latest-zed-ubuntu_focal
+        octavia_db_sync: docker.itera.io/openstackhelm/octavia:latest-zed-ubuntu_focal
+        db_drop: docker.io/hemsonawane/heat:latest-zed-ubuntu_focal
+        rabbit_init: docker.io/rabbitmq:3.7-management
+        ks_user: docker.io/hemsonawane/heat:latest-zed-ubuntu_focal
+        ks_service: docker.io/hemsonawane/heat:latest-zed-ubuntu_focal
+        ks_endpoints: docker.io/hemsonawane/heat:latest-zed-ubuntu_focal
+        dep_check: quay.io/airshipit/kubernetes-entrypoint:v1.0.0
+        image_repo_sync: docker.io/docker:17.07.0
+        octavia_api: breton/octavia-api:15.1.1
+        octavia_worker: breton/octavia-worker:15.1.1
+        octavia_housekeeping: breton/octavia-housekeeping:15.1.1
+        octavia_health_manager: docker.itera.io/openstackhelm/octavia:latest-zed-ubuntu_focal
+        octavia_health_manager_init: docker.itera.io/openstackhelm/octavia:latest-zed-ubuntu_focal
+        openvswitch_vswitchd: docker.io/kolla/centos-source-openvswitch-vswitchd:rocky
+      pull_policy: "Always"
+    labels:
+      api:
+        node_selector_key: openstack-control-plane
+        node_selector_value: enabled
+      worker:
+        node_selector_key: octavia
+        node_selector_value: enabled
+      housekeeping:
+        node_selector_key: octavia
+        node_selector_value: enabled
+      health_manager:
+        node_selector_key: octavia
+        node_selector_value: enabled
+      job:
+        node_selector_key: openstack-control-plane
+        node_selector_value: enabled
+    pod:
+      replicas:
+        api: 3
+        worker: 3
+        housekeeping: 3
+      mounts:
+        octavia_api:
+          octavia_api:
+            volumeMounts:
+              - name: octavia-certs
+                mountPath: /etc/octavia/certs/private/cakey.pem
+                subPath: cakey.pem
+              - name: octavia-certs
+                mountPath: /etc/octavia/certs/ca_01.pem
+                subPath: ca_01.pem
+              - name: octavia-certs
+                mountPath: /etc/octavia/certs/client.pem
+                subPath: client.pem
+            volumes:
+              - name: octavia-certs
+                secret:
+                  secretName: octavia-certs
+                  defaultMode: 0644
+        octavia_worker:
+          octavia_worker:
+            volumeMounts:
+              - name: octavia-certs
+                mountPath: /etc/octavia/certs/private/cakey.pem
+                subPath: cakey.pem
+              - name: octavia-certs
+                mountPath: /etc/octavia/certs/ca_01.pem
+                subPath: ca_01.pem
+              - name: octavia-certs
+                mountPath: /etc/octavia/certs/client.pem
+                subPath: client.pem
+            volumes:
+              - name: octavia-certs
+                secret:
+                  secretName: octavia-certs
+                  defaultMode: 0644
+        octavia_housekeeping:
+          octavia_housekeeping:
+            volumeMounts:
+              - name: octavia-certs
+                mountPath: /etc/octavia/certs/private/cakey.pem
+                subPath: cakey.pem
+              - name: octavia-certs
+                mountPath: /etc/octavia/certs/ca_01.pem
+                subPath: ca_01.pem
+              - name: octavia-certs
+                mountPath: /etc/octavia/certs/client.pem
+                subPath: client.pem
+            volumes:
+              - name: octavia-certs
+                secret:
+                  secretName: octavia-certs
+                  defaultMode: 0644
+        octavia_health_manager:
+          octavia_health_manager:
+            volumeMounts:
+              - name: octavia-certs
+                mountPath: /etc/octavia/certs/private/cakey.pem
+                subPath: cakey.pem
+              - name: octavia-certs
+                mountPath: /etc/octavia/certs/ca_01.pem
+                subPath: ca_01.pem
+              - name: octavia-certs
+                mountPath: /etc/octavia/certs/client.pem
+                subPath: client.pem
+            volumes:
+              - name: octavia-certs
+                secret:
+                  secretName: octavia-certs
+                  defaultMode: 0644
+    endpoints:
+      identity:
+        auth:
+          admin:
+            password: grijgfreiefdf
+          octavia:
+            password: obfhrthni
+      oslo_db:
+        auth:
+          admin:
+            password: hQrCbbmZQqGJbfedePek
+          octavia:
+            password: grjhtrsffxxsjf
+      oslo_db_persistence:
+        auth:
+          admin:
+            password: hQrCbbmZQqGJbfedePek
+          octavia:
+            password: grjhtrsffxxsjf
+      oslo_cache:
+        auth:
+          memcache_secret_key: 4hvV8Q8ZBrQbguej4jwj 
+      oslo_messaging:
+        auth:
+          admin:
+            username: rabbitmq-admin
+            password: 5mOMtMEnkx4TxTwEMGqY
+          octavia:
+            username: octavia-rabbitmq-user
+            password: fiohtgrgvdfnvf
+        statefulset:
+          replicas: 3
+          name: openstack-rabbitmq-rabbitmq
+    conf:
+      octavia:
+        api_settings:
+          default_provider_driver: 'amphorav2'
+          enabled_provider_drivers: "amphorav2:default,amphora:alias,octavia:deprecated"
+        task_flow:
+          jobboard_enabled: True
+          jobboard_backend_driver: 'redis_taskflow_driver'
+          jobboard_backend_port: '6379'
+          jobboard_backend_hosts: 'openstack-redis-master.openstack.svc.cluster.local'
+          # update redis password
+          jobboard_backend_password: 'qwDfZzkLaYsPn6vCe4x5yR'
+          jobboard_backend_namespace: 'octavia_jobboard'
+        cinder:
+          volume_size: 2
+          volume_type: rbd1
+          volume_create_retry_interval: 5
+          volume_create_timeout: 300
+          volume_create_max_retries: 5
+        controller_worker:
+          amp_image_owner_id: 4c8ecfe802c94041b3dbeac25fff925b
+          amp_secgroup_list: cc3d78ff-1ac8-431e-b9ac-18e046381517
+          amp_flavor_id: 52862ac0-7daa-4074-8c01-8a169984c3ff
+          amp_boot_network_list: fe73c246-1e95-4828-a1eb-2c90b7863bf0
+          volume_driver: volume_cinder_driver
+          loadbalancer_topology: 'ACTIVE_STANDBY'
+        health_manager:
+          bind_port: 5555
+          bind_ip: 0.0.0.0
+          controller_ip_port_list: "172.16.2.236:5555,172.16.3.115:5555"
