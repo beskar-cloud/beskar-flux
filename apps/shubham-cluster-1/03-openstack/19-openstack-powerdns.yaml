@@ -1,0 +1,24 @@
+kind: HelmRelease
+apiVersion: helm.toolkit.fluxcd.io/v2beta1
+metadata:
+  name: powerdns
+  namespace: openstack
+spec:
+  values:
+    conf:
+      powerdns:
+        slave: true
+        dnsupdate: true
+        api: true
+        api_key: CjNUbmaLHTnWwgtPxpJRhY
+        cache_ttl: 0
+        query_cache_ttl: 0
+        negquery_cache_ttl: 0
+        webserver: true
+        webserver_address: 0.0.0.0
+        webserver_allow_from: 0.0.0.0/0
+        gmysql_dbname: powerdns
+        gmysql_dnssec: yes
+      mysql:
+        client:
+          database: powerdns

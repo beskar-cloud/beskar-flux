@@ -22,3 +22,5 @@ resources:
   - 18-openstack-prometheus-openstack-exporter.yaml
   - 19-openstack-redis.yaml
   - 20-openstack-octavia.yaml
+  - 21-openstack-powerdns.yaml
+  - 22-openstack-designate.yaml

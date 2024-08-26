@@ -18,3 +18,5 @@ patchesStrategicMerge:
   - 03-openstack/15-openstack-heat.yaml
   - 03-openstack/16-openstack-horizon.yaml
   - 03-openstack/17-openstack-barbican.yaml
+  - 03-openstack/19-openstack-powerdns.yaml
+  - 03-openstack/20-openstack-designate.yaml
