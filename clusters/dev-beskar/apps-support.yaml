@@ -1,0 +1,23 @@
+apiVersion: kustomize.toolkit.fluxcd.io/v1beta2
+kind: Kustomization
+metadata:
+  name: apps-support
+  namespace: flux-system
+spec:
+  interval: 10m0s
+  retryInterval: 5m
+  dependsOn:
+    - name: infrastructure
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+  path: ./apps/dev-beskar/01-support
+  prune: true
+  wait: true
+  force: true
+  timeout: 10m0s
+  # Decryption configuration starts here
+  decryption:
+    provider: sops
+    secretRef:
+      name: sops-age-key-dev-beskar

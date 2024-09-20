@@ -1,0 +1,91 @@
+kind: HelmRelease
+apiVersion: helm.toolkit.fluxcd.io/v2beta1
+metadata:
+  name: loki-stack
+  namespace: &ns osh-infra
+spec:
+  interval: 5m
+  targetNamespace: *ns
+  storageNamespace: *ns
+  chart:
+    spec:
+      chart: loki-stack
+      version: 2.9.9
+      sourceRef:
+        kind: HelmRepository
+        name: loki-stack
+        namespace: default
+  values:
+    loki:
+      enabled: true
+      persistence:
+        enabled: true 
+        accessModes:
+        - ReadWriteOnce
+        size: 20Gi
+        storageClassName: external-ceph-rbd-cloud-ceph-blockpool-it4i-backup
+      nodeSelector:
+        openstack-control-plane: enabled
+      service:
+        type: NodePort
+        nodePort: 30010
+        port: 3100
+      config:
+        compactor:
+          retention_enabled: true
+        limits_config:
+          retention_period: 720h
+    promtail:
+      enabled: true
+      config:
+        snippets:
+          pipelineStages:
+            - cri: {}
+          common:
+            - action: replace
+              source_labels:
+                - __meta_kubernetes_pod_node_name
+              target_label: node_name
+            - action: replace
+              source_labels:
+                - __meta_kubernetes_namespace
+              target_label: namespace
+            - action: replace
+              replacement: $1
+              separator: /
+              source_labels:
+                - namespace
+                - app
+              target_label: job
+            - action: replace
+              source_labels:
+                - __meta_kubernetes_pod_name
+              target_label: pod
+            - action: replace
+              source_labels:
+                - __meta_kubernetes_pod_container_name
+              target_label: container
+            - action: replace
+              replacement: /var/log/pods/*$1/*.log
+              separator: /
+              source_labels:
+                - __meta_kubernetes_pod_uid
+                - __meta_kubernetes_pod_container_name
+              target_label: __path__
+            - action: replace
+              replacement: /var/log/pods/*$1/*.log
+              regex: true/(.*)
+              separator: /
+              source_labels:
+                - __meta_kubernetes_pod_annotationpresent_kubernetes_io_config_hash
+                - __meta_kubernetes_pod_annotation_kubernetes_io_config_hash
+                - __meta_kubernetes_pod_container_name
+              target_label: __path__
+            - action: labelmap
+              regex: __meta_kubernetes_pod_label_(.+)
+    fluent-bit:
+      enabled: false
+    grafana:
+      enabled: false
+    prometheus:
+      enabled: false

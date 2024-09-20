@@ -1,0 +1,114 @@
+kind: HelmRelease
+apiVersion: helm.toolkit.fluxcd.io/v2beta1
+metadata:
+  name: horizon
+  namespace: openstack
+spec:
+  interval: 5m
+  dependsOn:
+  - name: "prometheus-openstack-exporter"
+    namespace: "openstack"
+  targetNamespace: openstack
+  storageNamespace: openstack
+  chart:
+    spec:
+      chart: horizon
+      sourceRef:
+        kind: GitRepository
+        name: openstack-helm
+        namespace: default 
+      interval: 1m
+  install:
+    disableWait: true
+  upgrade:
+    disableWait: true
+  valuesFrom:
+  - kind: ConfigMap
+    name: common
+    valuesKey: region_name
+    targetPath: endpoints.identity.auth.admin.region_name
+  - kind: Secret
+    name: common
+    valuesKey: mariadb.admin.password
+    targetPath: endpoints.oslo_db.auth.admin.password
+  # https://github.com/beskar-cloud/openstack-helm/blob/main/horizon/values.yaml
+  values:
+    images:
+      tags:
+        db_init: &img_heat docker.io/openstackhelm/heat:yoga-ubuntu_focal-20230526
+        db_drop: *img_heat
+        horizon_db_sync: &img_horizon docker.io/openstackhelm/horizon:yoga-ubuntu_focal-20230526
+        horizon: *img_horizon
+      pull_policy: "Always"
+    network:
+      node_port:
+        enabled: true
+        port: 31000
+    endpoints:
+      identity:
+        auth:
+          admin: {}
+            #region_name: ""       # configmap/common/region_name
+      oslo_db:
+        auth:
+          admin: {}
+            #password: ""          # secret/openstack/common/mariadb.admin.password
+    labels:
+      dashboard:
+        node_selector_key: horizon # openstack-control-plane
+        node_selector_value: enabled
+    pod:
+      replicas:
+        server: 6
+    local_settings:
+      openstack_neutron_network:
+        enable_router: "True"
+        enable_quotas: "True"
+        enable_ipv6: "False"
+        enable_distributed_router: "False"
+        enable_ha_router: "True"
+        enable_lb: "True"
+        enable_firewall: "False"
+        enable_vpn: "True"
+        enable_fip_topology_check: "True"
+    conf:
+      horizon:
+        local_settings:
+          config:
+            secure_proxy_ssl_header: true  # enable SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+            config.use_ssl: "True"
+            csrf_cookie_secure: "True"
+            csrf_cookie_httponly: "False"
+            session_cookie_secure: "True"
+            session_cookie_httponly: "False"
+            keystone_multidomain_support: "True"
+            keystone_default_domain: "einfra_cz"
+            auth:
+              sso:
+                enabled: true
+                initial_choice: "einfra_cz"
+              idp_mapping:
+                - name: "einfra_cz"
+                  protocol: "openid"
+                  label: "e-INFRA CZ federation"
+                  idp: "login.e-infra.cz"
+                - name: "egi_eu"
+                  protocol: "openid"
+                  label: "EGI.eu Check-In"
+                  idp: "egi.eu"
+            raw:
+              OPENSTACK_HOST: horizon.ostrava.openstack.cloud.dev
+              # client web-browser redirect to WEBSSO_KEYSTONE_URL but final
+              # request to keystone internally
+              # see https://bugs.launchpad.net/horizon/+bug/1874705 for more details
+              WEBSSO_USE_HTTP_REFERER: "False"
+              OPENSTACK_KEYSTONE_URL: http://keystone-api.openstack.svc.cluster.local:5000/v3
+              WEBSSO_KEYSTONE_URL: https://identity.ostrava.openstack.cloud.dev/v3
+              # TODO: domain drop down
+              #OPENSTACK_KEYSTONE_DOMAIN_DROPDOWN: "True"
+              #OPENSTACK_KEYSTONE_DOMAIN_CHOICES: '( ("default", "Default"), ("einfra_cz", "e-INFRA.CZ federation"),)'
+              # https://docs.openstack.org/horizon/yoga/configuration/settings.html#session-timeout
+              SESSION_TIMEOUT: 28800
+              # The Keystone project drop-down maximum number of items.
+              DROPDOWN_MAX_ITEMS: 300
+

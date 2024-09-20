@@ -1,0 +1,28 @@
+kind: HelmRelease
+apiVersion: helm.toolkit.fluxcd.io/v2beta1
+metadata:
+  name: node-exporter
+  namespace: &ns osh-infra
+spec:
+  interval: 5m
+  targetNamespace: *ns
+  storageNamespace: *ns
+  chart:
+    spec:
+      chart: prometheus-node-exporter
+      sourceRef:
+        kind: GitRepository
+        name: openstack-helm-infra
+        namespace: default
+      interval: 1m
+  values:
+    images:
+      tags:
+        node_exporter: registry.gitlab.ics.muni.cz:443/cloud/g2/container-registry/docker.itera.io__prom__node-exporter:v1.1.2
+        dep_check: registry.gitlab.ics.muni.cz:443/cloud/g2/container-registry/docker.itera.io__stackanetes__kubernetes-entrypoint:v1.0.0
+    labels:
+      # launch node-exporter on all nodes (avoid specific label missing and node-exporter not executed)
+      node_exporter: null
+      job:
+        node_selector_key: openstack-control-plane
+        node_selector_value: enabled

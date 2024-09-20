@@ -1,0 +1,54 @@
+kind: HelmRelease
+apiVersion: helm.toolkit.fluxcd.io/v2beta1
+metadata:
+  name: oauth2-proxy-alertmanager
+  namespace: &ns osh-infra
+spec:
+  interval: 5m
+  targetNamespace: *ns
+  storageNamespace: *ns
+  dependsOn:
+  - name: "alertmanager"
+    namespace: *ns
+  chart:
+    spec:
+      chart: ./helm/oauth2-proxy
+      sourceRef:
+        kind: GitRepository
+        name: oauth2-proxy
+        namespace: default
+      interval: 1m
+  valuesFrom:
+  - kind: Secret
+    name: common
+    valuesKey: oauth2-proxy-alertmanager.config.clientSecret
+    targetPath: config.clientSecret
+  - kind: Secret
+    name: common
+    valuesKey: oauth2-proxy-alertmanager.config.cookieSecret
+    targetPath: config.cookieSecret
+  # https://gitlab.ics.muni.cz/cloud/g2/oauth2-proxy-manifests/-/blob/downstream/helm/oauth2-proxy/values.yaml
+  values:
+    image:
+      repository: registry.gitlab.ics.muni.cz:443/cloud/g2/container-registry/quay.io__oauth2-proxy__oauth2-proxy
+      tag: "v7.4.0"
+    namespaceOverride: null
+    nameOverride: &app oauth2-proxy-alertmanager
+    fullnameOverride: *app
+    config:
+      clientID: "4be3b93e60a14e522d755de6e3925d03b7b26b003b55c31010f7bedda1e3ee11"
+      #clientSecret: ""   # secret/common/oauth2-proxy-alertmanager.config.clientSecret
+      #cookieSecret: ""   # secret/common/oauth2-proxy-alertmanager.config.cookieSecret
+    extraArgs: {provider=gitlab,
+                upstream=static://202,
+                redirect-url=https://alertmanager.ostrava.openstack.cloud.dev/oauth2/callback,
+                cookie-secure=true,
+                oidc-issuer-url=https://gitlab.ics.muni.cz,
+                set-xauthrequest=true,
+                cookie-samesite=none,
+                show-debug-on-error,
+                reverse-proxy,
+                session-cookie-minimal
+    }
+    service:
+      portNumber: 4180

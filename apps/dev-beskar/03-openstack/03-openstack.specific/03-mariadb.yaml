@@ -1,0 +1,36 @@
+kind: HelmRelease
+apiVersion: helm.toolkit.fluxcd.io/v2beta1
+metadata:
+  name: mariadb
+  namespace: openstack
+spec:
+  # https://github.com/beskar-cloud/openstack-helm-infra/blob/main/mariadb/values.yaml
+  values:
+    volume:
+      class_name: external-ceph-rbd-cloud-ceph-blockpool-it4i
+      size: 8Gi
+      backup:
+        class_name: external-ceph-rbd-cloud-ceph-blockpool-it4i-backup
+        size: 8Gi
+    # TODO: enable mariadb_backup
+    # @2023-02-22 Helm upgrade failed: error while running post render on files: map[string]interface {}(nil): yaml: unmarshal errors:
+    #   line 140: mapping key "serviceAccountName" already defined at line 37
+    #   line 138: mapping key "restartPolicy" already defined at line 38
+    #
+    #manifests:
+    #  cron_job_mariadb_backup: true
+    conf:
+      database:
+        config_override: |
+          [mysqld]
+          innodb_buffer_pool_size=65535M
+          innodb_doublewrite=0
+          innodb_file_format=Barracuda
+          innodb_file_per_table=1
+          innodb_flush_method=O_DIRECT
+          innodb_io_capacity=500
+          innodb_locks_unsafe_for_binlog=1
+          innodb_log_file_size=128M
+          innodb_old_blocks_time=1000
+          innodb_read_io_threads=16
+          innodb_write_io_threads=16

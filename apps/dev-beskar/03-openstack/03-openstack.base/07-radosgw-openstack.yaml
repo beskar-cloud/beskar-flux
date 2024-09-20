@@ -1,0 +1,75 @@
+kind: HelmRelease
+apiVersion: helm.toolkit.fluxcd.io/v2beta1
+metadata:
+  name: radosgw-openstack
+  namespace: &ns openstack
+spec:
+  interval: 10m
+  dependsOn:
+  - name: "keystone"
+    namespace: *ns
+  targetNamespace: *ns
+  storageNamespace: *ns
+  chart:
+    spec:
+      chart: ceph-rgw-userpool
+      sourceRef:
+        kind: GitRepository
+        name: custom-helm-charts
+        namespace: default 
+      interval: 1m
+  valuesFrom:
+  - kind: Secret
+    name: common
+    valuesKey: keystone.identity.admin.password
+    targetPath: endpoints.identity.auth.admin.password
+  - kind: ConfigMap
+    name: common
+    valuesKey: region_name
+    targetPath: endpoints.identity.auth.admin.region_name
+  - kind: Secret
+    name: common
+    valuesKey: radosgw.identity.swift.password
+    targetPath: endpoints.identity.auth.swift.password
+  - kind: ConfigMap
+    name: common
+    valuesKey: region_name
+    targetPath: endpoints.identity.auth.swift.region_name
+  # https://gitlab.ics.muni.cz/cloud/g2/custom-helm-charts/-/blob/downstream/ceph-rgw-userpool/values.yaml
+  values:
+    images:
+      pull_policy: Always
+      tags:
+        ceph_bootstrap: &img_ceph_daemon 'docker.io/openstackhelm/ceph-daemon:ubuntu_focal_17.2.6-1-20230508'
+        ceph_config_helper: &ceph_config_helper 'docker.io/openstackhelm/ceph-config-helper:ubuntu_focal_17.2.6-1-20230508'
+        ceph_rgw: *img_ceph_daemon
+        dep_check: 'quay.io/airshipit/kubernetes-entrypoint:v1.0.0'
+        rgw_s3_admin: *ceph_config_helper
+        rgw_placement_targets: *ceph_config_helper
+        ks_endpoints: &img_heat 'docker.io/openstackhelm/heat:yoga-ubuntu_focal-20230526'
+        ks_service: *img_heat
+        ks_user: *img_heat
+    endpoints:
+      identity:
+        namespace: *ns
+        auth:
+          admin: {}
+            #password: ""       # secret/openstack/common/keystone.identity.admin.password
+            #region_name: ""    # configmap/common/region_name
+          swift: {}
+            #password: ""       # secret/openstack/common/radosgw.identity.swift.password
+            #region_name: ""    # configmap/common/region_name
+          object_store:
+            namespace: *ns
+          ceph_mon:
+            namespace: rook-ceph-external
+      object_store:
+        namespace: *ns
+      ceph_mon:
+        namespace: rook-ceph-external
+    labels:
+      job:
+        node_selector_key: openstack-control-plane
+        node_selector_value: enabled
+    bootstrap:
+      enabled: False

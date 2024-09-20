@@ -1,0 +1,8 @@
+apiVersion: v1
+data:
+  region_name: Brno1
+  egi_site_name: CESNET-MCCGX
+kind: ConfigMap
+metadata:
+  name: common
+  namespace: egi-eu
