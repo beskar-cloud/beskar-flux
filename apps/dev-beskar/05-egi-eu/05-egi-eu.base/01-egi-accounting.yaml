@@ -1,0 +1,84 @@
+apiVersion: helm.toolkit.fluxcd.io/v2beta1
+kind: HelmRelease
+metadata:
+  name: &app egi-accounting
+  namespace: egi-eu
+spec:
+  interval: 5m
+  chart:
+    spec:
+      chart: *app
+      sourceRef:
+        kind: GitRepository
+        name: custom-helm-charts
+        namespace: default
+      interval: 1m
+
+  valuesFrom:
+  - kind: ConfigMap
+    name: common
+    valuesKey: egi_site_name
+    targetPath: caso.config.DEFAULT.site_name
+  - kind: ConfigMap
+    name: common
+    valuesKey: region_name
+    targetPath: caso.config.keystone_auth.region_name
+  - kind: Secret
+    name: common
+    valuesKey: caso_ostack_user_password
+    targetPath: caso.config.keystone_auth.password
+  - kind: Secret
+    name: common
+    valuesKey: grid_security_cert
+    targetPath: ssm.certs.grid_security_cert
+  - kind: Secret
+    name: common
+    valuesKey: grid_security_key
+    targetPath: ssm.certs.grid_security_key
+
+  # https://gitlab.ics.muni.cz/cloud/g2/custom-helm-charts/-/blob/downstream/egi-accounting/values.yaml
+  values:
+    persistence:
+      storageClass: mystorageclass
+    caso:
+      schedule: "2 * * * *"
+      config: # https://github.com/enolfc/fedcloudappliance/blob/master/accounting/caso/caso.conf
+        DEFAULT:
+          vo_property: "accounting:VO"
+          #site_name: ""               # configmap/egi-eu/common/egi_site_name
+        keystone_auth:
+          auth_url: http://keystone-api.openstack.svc.cluster.local:5000/v3
+          #region_name: ""             # configmap/egi-eu/common/region_name
+          username: egi-accounting
+          #password: ""                # secret/egi-eu/common/caso_ostack_user_password
+          user_domain_name: egi_eu
+      affinity: &common-affinity
+        nodeAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 50
+            preference:
+              matchExpressions:
+              - key: kubernetes.io/hostname
+                operator: In
+                values:
+                - controlplane-005
+          - weight: 30
+            preference:
+              matchExpressions:
+              - key: kubernetes.io/hostname
+                operator: In
+                values:
+                - controlplane-003
+          - weight: 10
+            preference:
+              matchExpressions:
+              - key: kubernetes.io/hostname
+                operator: In
+                values:
+                - controlplane-001
+    ssm:
+      schedule: "32 */6 * * *"
+      certs: {}
+        #grid_security_cert: ""        # secret/egi-eu/common/grid_security_cert
+        #grid_security_key: ""         # secret/egi-eu/common/grid_security_key
+      affinity: *common-affinity
