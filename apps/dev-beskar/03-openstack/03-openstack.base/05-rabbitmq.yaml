@@ -1,0 +1,55 @@
+kind: HelmRelease
+apiVersion: helm.toolkit.fluxcd.io/v2beta1
+metadata:
+  name: rabbitmq
+  namespace: &ns openstack
+spec:
+  interval: 10m
+  dependsOn:
+  - name: "memcached"
+    namespace: *ns
+  targetNamespace: *ns
+  storageNamespace: *ns
+  chart:
+    spec:
+      chart: rabbitmq
+      sourceRef:
+        kind: GitRepository
+        name: openstack-helm-infra
+        namespace: default 
+      interval: 1m
+  valuesFrom:
+  - kind: Secret
+    name: common
+    valuesKey: rabbitmq.admin.password
+    targetPath: endpoints.oslo_messaging.auth.user.password
+  # https://github.com/beskar-cloud/openstack-helm-infra/blob/main/rabbitmq/values.yaml
+  values:
+    images:
+      tags:
+        prometheus_rabbitmq_exporter: docker.io/kbudde/rabbitmq-exporter:1.0.0-RC19
+        prometheus_rabbitmq_exporter_helm_tests: &heat-image docker.io/openstackhelm/heat:yoga-ubuntu_focal-20230526
+        rabbitmq_init: *heat-image
+        rabbitmq: docker.io/library/rabbitmq:3.9.29
+        dep_check: quay.io/airshipit/kubernetes-entrypoint:v1.0.0
+        scripted_test: docker.io/library/rabbitmq:3.9.29-management
+    pod:
+      replicas:
+        server: 3
+        prometheus_rabbitmq_exporter: 1
+    endpoints:
+      oslo_messaging:
+        auth:
+          user:
+            username: rabbitmq-admin
+            #password: "" # secret/openstack/common/rabbitmq.admin.password
+    monitoring:
+      prometheus:
+        enabled: True
+    labels:
+      server:
+        node_selector_key: openstack-control-plane
+        node_selector_value: enabled
+      prometheus_rabbitmq_exporter:
+        node_selector_key: openstack-control-plane
+        node_selector_value: enabled

@@ -1,0 +1,56 @@
+kind: HelmRelease
+apiVersion: helm.toolkit.fluxcd.io/v2beta1
+metadata:
+  name: prometheus-openstack-exporter
+  namespace: openstack
+spec:
+  interval: 5m
+  dependsOn:
+  - name: "barbican"
+    namespace: "openstack"
+  targetNamespace: openstack
+  storageNamespace: openstack
+  chart:
+    spec:
+      chart: prometheus-openstack-exporter
+      sourceRef:
+        kind: GitRepository
+        name: openstack-helm-infra
+        namespace: default 
+      interval: 1m
+  valuesFrom:
+  - kind: Secret
+    name: common
+    valuesKey: keystone.identity.admin.password
+    targetPath: endpoints.identity.auth.admin.password
+  - kind: ConfigMap
+    name: common
+    valuesKey: region_name
+    targetPath: endpoints.identity.auth.admin.region_name
+  - kind: Secret
+    name: common
+    valuesKey: prometheus_exporter_openstack.identity.user.password
+    targetPath: endpoints.identity.auth.user.password
+  - kind: ConfigMap
+    name: common
+    valuesKey: region_name
+    targetPath: endpoints.identity.auth.user.region_name
+  # https://github.com/beskar-cloud/openstack-helm-infra/blob/main/prometheus-openstack-exporter/values.yaml
+  values:
+    images:
+      tags:
+        prometheus_openstack_exporter: docker.io/openstackhelm/prometheus-openstack-exporter:ubuntu_bionic-20230527
+        dep_check: docker.itera.io/stackanetes/kubernetes-entrypoint:v1.0.0
+        ks_user: docker.io/openstackhelm/heat:yoga-ubuntu_focal-20230526
+    endpoints:
+      identity:
+        auth:
+          admin: {}
+            #password: ""          # secret/openstack/common/keystone.identity.admin.password
+            #region_name: ""       # configmap/common/region_name
+          user: {}
+            #password: ""          # secret/openstack/common/prometheus_exporter_openstack.identity.user.password
+            #region_name: ""       # configmap/common/region_name
+    labels:
+      node_selector_key: openstack-control-plane
+      node_selector_value: enabled

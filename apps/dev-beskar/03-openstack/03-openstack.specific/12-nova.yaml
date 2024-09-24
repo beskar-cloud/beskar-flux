@@ -1,0 +1,44 @@
+kind: HelmRelease
+apiVersion: helm.toolkit.fluxcd.io/v2beta1
+metadata:
+  name: nova
+  namespace: openstack
+spec:
+  values:
+    conf:
+      overrides:
+        nova_compute:
+          labels:
+          - label:
+              key: ostack-cluster-name
+              values:
+              - "cln"
+            conf:
+              nova:
+                DEFAULT:
+                  vcpu_pin_set: "0-127"
+                  reserved_host_memory_mb: 8192
+          - label:
+              key: ostack-flavor-type
+              values:
+              - "e1"
+            conf:
+              nova:
+                DEFAULT:
+                  cpu_allocation_ratio: 8.0
+          - label:
+              key: ostack-flavor-type
+              values:
+              - "c2"
+            conf:
+              nova:
+                DEFAULT:
+                  cpu_allocation_ratio: 2.0
+          - label:
+              key: ostack-flavor-type
+              values:
+              - "c3"
+            conf:
+              nova:
+                DEFAULT:
+                  cpu_allocation_ratio: 1.0

@@ -1,0 +1,72 @@
+kind: HelmRelease
+apiVersion: helm.toolkit.fluxcd.io/v2beta1
+metadata:
+  name: esaco
+  namespace: &ns openstack
+spec:
+  interval: 10m
+  dependsOn:
+  - name: "rabbitmq"
+    namespace: *ns
+  targetNamespace: *ns
+  storageNamespace: *ns
+  chart:
+    spec:
+      chart: esaco
+      sourceRef:
+        kind: GitRepository
+        name: custom-helm-charts
+        namespace: default
+      interval: 1m
+
+  valuesFrom:
+  - kind: Secret
+    name: keystone-apache-oidc-metadata
+    valuesKey: oidc_api_client_id
+    targetPath: configuration_values.e_infra_cz.client_id
+  - kind: Secret
+    name: keystone-apache-oidc-metadata
+    valuesKey: oidc_api_client_secret
+    targetPath: configuration_values.e_infra_cz.client_secret
+  - kind: Secret
+    name: keystone-apache-oidc-metadata
+    valuesKey: oidc_egi_eu_demo_api_client_id
+    targetPath: configuration_values.egi_eu_demo.client_id
+  - kind: Secret
+    name: keystone-apache-oidc-metadata
+    valuesKey: oidc_egi_eu_demo_api_client_secret
+    targetPath: configuration_values.egi_eu_demo.client_secret
+  - kind: ConfigMap
+    name: common
+    valuesKey: esaco.username
+    targetPath: configuration.env_vars.ESACO_USER_NAME
+  - kind: Secret
+    name: common
+    valuesKey: esaco.password
+    targetPath: configuration.env_vars.ESACO_USER_PASSWORD
+
+  # https://github.com/beskar-cloud/custom-helm-charts/blob/main/esaco/values.yaml
+  values:
+    configuration_values:
+      e_infra_cz: {}
+        #client_id: ""        # secret/openstack/keystone-apache-oidc-metadata/oidc_api_client_id
+        #client_secret: ""    # secret/openstack/keystone-apache-oidc-metadata/oidc_api_client_secret
+      egi_eu_demo: {}
+        #client_id: ""        # secret/openstack/keystone-apache-oidc-metadata/oidc_egi_eu_demo_api_client_id
+        #client_secret: ""    # secret/openstack/keystone-apache-oidc-metadata/oidc_egi_eu_demo_api_client_secret
+    configuration:
+      oidc_providers: |
+        oidc:
+          clients:
+          - issuer-url: https://login.e-infra.cz/oidc/
+            client-id: {{ .Values.configuration_values.e_infra_cz.client_id }}
+            client-secret: {{ .Values.configuration_values.e_infra_cz.client_secret }}
+          - issuer-url: https://aai-demo.egi.eu/auth/realms/egi
+            client-id: {{ .Values.configuration_values.egi_eu_demo.client_id }}
+            client-secret: {{ .Values.configuration_values.egi_eu_demo.client_secret }}
+      env_vars:
+        ESACO_BIND_PORT: 8080
+        #ESACO_USER_NAME: ""      # configmap/openstack/common/esaco.username
+        #ESACO_USER_PASSWORD: ""  # secret/openstack/common/esaco.password
+    deployment:
+      replicaCount: 3

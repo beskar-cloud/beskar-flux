@@ -1,0 +1,195 @@
+kind: HelmRelease
+apiVersion: helm.toolkit.fluxcd.io/v2beta1
+metadata:
+  name: heat
+  namespace: openstack
+spec:
+  interval: 5m
+  dependsOn:
+  - name: "openvswitch"
+    namespace: "openstack"
+  - name: "libvirt"
+    namespace: "openstack"
+  - name: "nova"
+    namespace: "openstack"
+  - name: "placement"
+    namespace: "openstack"
+  - name: "neutron"
+    namespace: "openstack"
+  targetNamespace: openstack
+  storageNamespace: openstack
+  chart:
+    spec:
+      chart: heat
+      sourceRef:
+        kind: GitRepository
+        name: openstack-helm
+        namespace: default 
+      interval: 1m
+  install:
+    disableWait: true
+  upgrade:
+    disableWait: true
+  valuesFrom:
+  - kind: Secret
+    name: common
+    valuesKey: keystone.identity.admin.password
+    targetPath: endpoints.identity.auth.admin.password
+  - kind: ConfigMap
+    name: common
+    valuesKey: region_name
+    targetPath: endpoints.identity.auth.admin.region_name
+  - kind: Secret
+    name: common
+    valuesKey: heat.identity.heat.password
+    targetPath: endpoints.identity.auth.heat.password
+  - kind: ConfigMap
+    name: common
+    valuesKey: region_name
+    targetPath: endpoints.identity.auth.heat.region_name
+  - kind: Secret
+    name: common
+    valuesKey: heat.identity.heat_trustee.password
+    targetPath: endpoints.identity.auth.heat_trustee.password
+  - kind: ConfigMap
+    name: common
+    valuesKey: region_name
+    targetPath: endpoints.identity.auth.heat_trustee.region_name
+  - kind: Secret
+    name: common
+    valuesKey: heat.identity.heat_stack_user.password
+    targetPath: endpoints.identity.auth.heat_stack_user.password
+  - kind: ConfigMap
+    name: common
+    valuesKey: region_name
+    targetPath: endpoints.identity.auth.heat_stack_user.region_name
+  - kind: Secret
+    name: common
+    valuesKey: heat.identity.test.password
+    targetPath: endpoints.identity.auth.test.password
+  - kind: ConfigMap
+    name: common
+    valuesKey: region_name
+    targetPath: endpoints.identity.auth.test.region_name
+  - kind: Secret
+    name: common
+    valuesKey: mariadb.admin.password
+    targetPath: endpoints.oslo_db.auth.admin.password
+  - kind: Secret
+    name: common
+    valuesKey: heat.oslo_db.heat.password
+    targetPath: endpoints.oslo_db.auth.heat.password
+  - kind: Secret
+    name: common
+    valuesKey: rabbitmq.admin.password
+    targetPath: endpoints.oslo_messaging.auth.admin.password
+  - kind: Secret
+    name: common
+    valuesKey: heat.oslo_messaging.heat.password
+    targetPath: endpoints.oslo_messaging.auth.heat.password
+  # https://github.com/beskar-cloud/openstack-helm/blob/main/heat/values.yaml
+  values:
+    network:
+      api:
+        node_port:
+          enabled: true 
+        ingress:
+          public: false
+      cfn:
+        node_port:
+          enabled: true 
+        ingress:
+          public: false
+      cloudwatch:
+        ingress:
+          public: false
+    images:
+      tags:
+        test: docker.itera.io/xrally/xrally-openstack:2.0.0
+        bootstrap: &img_heat docker.io/openstackhelm/heat:yoga-ubuntu_focal-20230526
+        db_init: *img_heat
+        heat_db_sync: *img_heat
+        db_drop: *img_heat
+        rabbit_init: docker.io/rabbitmq:3.9-management
+        ks_user: *img_heat
+        ks_service: *img_heat
+        ks_endpoints: *img_heat
+        heat_api: *img_heat
+        heat_cfn: *img_heat
+        heat_cloudwatch: *img_heat
+        heat_engine: *img_heat
+        heat_engine_cleaner: *img_heat
+        heat_purge_deleted: *img_heat
+        dep_check: docker.itera.io/stackanetes/kubernetes-entrypoint:v1.0.0
+    endpoints:
+      orchestration:
+        scheme:
+          public: https
+        port:
+          api:
+            public: 443
+        hosts:
+          public: null
+        host_fqdn_override:
+          public: orchestration.ostrava.openstack.cloud.dev
+      cloudformation:
+        scheme:
+          public: https
+        port:
+          api:
+            public: 443
+        hosts:
+          public: null
+        host_fqdn_override:
+          public: cloudformation.ostrava.openstack.cloud.dev
+      identity:
+        auth:
+          admin: {}
+            #password: ""          # secret/openstack/common/keystone.identity.admin.password
+            #region_name: ""       # configmap/common/region_name
+          heat: {}
+            #password: ""          # secret/openstack/common/heat.identity.heat.password
+            #region_name: ""       # configmap/common/region_name
+          heat_trustee: {}
+            #password: ""          # secret/openstack/common/heat.identity.heat_trustee.password
+            #region_name: ""       # configmap/common/region_name
+          heat_stack_user: {}
+            #password: ""          # secret/openstack/common/heat.identity.heat_stack_user.password
+            #region_name: ""       # configmap/common/region_name
+          test: {}
+            #password: ""          # secret/openstack/common/heat.identity.test.password
+            #region_name: ""       # configmap/common/region_name
+      oslo_db:
+        auth:
+          admin: {}
+            #password: ""          # secret/openstack/common/mariadb.admin.password
+          heat: {}
+            #password: ""          # secret/openstack/common/heat.oslo_db.heat.password
+      oslo_cache:
+        hosts:
+          default: heat-memcached
+      oslo_messaging:
+        auth:
+          admin:
+            username: rabbitmq-admin
+            #password: ""          # secret/openstack/common/rabbitmq.admin.password
+          heat:
+            username: heat-rabbitmq-user
+            #password: ""          # secret/openstack/common/heat.oslo_messaging.heat.password
+        statefulset:
+          replicas: 3
+          name: openstack-rabbitmq-rabbitmq
+    labels:
+      api: &controlplane-labels
+        node_selector_key: openstack-control-plane
+        node_selector_value: enabled
+      cfn: *controlplane-labels
+      cloudwatch: *controlplane-labels
+      engine: *controlplane-labels
+      job: *controlplane-labels
+    #pod:
+    #  replicas:
+    #    api: 2
+    #    cfn: 2
+    #    cloudwatch: 2
+    #    engine: 2

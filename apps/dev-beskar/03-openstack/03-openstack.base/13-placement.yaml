@@ -1,0 +1,111 @@
+kind: HelmRelease
+apiVersion: helm.toolkit.fluxcd.io/v2beta1
+metadata:
+  name: placement
+  namespace: openstack
+spec:
+  interval: 5m
+  dependsOn:
+  - name: "cinder"
+    namespace: "openstack"
+  targetNamespace: openstack
+  storageNamespace: openstack
+  chart:
+    spec:
+      chart: placement
+      sourceRef:
+        kind: GitRepository
+        name: openstack-helm
+        namespace: default 
+      interval: 1m
+  install:
+    disableWait: true
+  upgrade:
+    disableWait: true
+  valuesFrom:
+  - kind: Secret
+    name: common
+    valuesKey: keystone.identity.admin.password
+    targetPath: endpoints.identity.auth.admin.password
+  - kind: ConfigMap
+    name: common
+    valuesKey: region_name
+    targetPath: endpoints.identity.auth.admin.region_name
+  - kind: Secret
+    name: common
+    valuesKey: nova.identity.placement.password
+    targetPath: endpoints.identity.auth.placement.password
+  - kind: ConfigMap
+    name: common
+    valuesKey: region_name
+    targetPath: endpoints.identity.auth.placement.region_name
+  - kind: Secret
+    name: common
+    valuesKey: mariadb.admin.password
+    targetPath: endpoints.oslo_db.auth.admin.password
+  - kind: Secret
+    name: common
+    valuesKey: nova.oslo_db.nova.password
+    targetPath: endpoints.oslo_db.auth.placement.password
+  - kind: Secret
+    name: common
+    valuesKey: keystone.oslo_cache.memcache_secret_key
+    targetPath: endpoints.oslo_cache.auth.memcache_secret_key
+  # https://github.com/beskar-cloud/openstack-helm/blob/main/placement/values.yaml
+  values:
+    network:
+      api:
+        ingress:
+          public: false
+        node_port:
+          enabled: true
+    endpoints:
+      placement:
+        scheme:
+          public: https
+        port:
+          api:
+            public: 443
+        hosts:
+          public: null
+        host_fqdn_override:
+          public: placement.ostrava.openstack.cloud.dev
+      identity:
+        name: keystone
+        auth:
+          admin: {}
+            #password: ""          # secret/openstack/common/keystone.identity.admin.password
+            #region_name: ""       # configmap/common/region_name
+          placement: {}
+            #password: ""          # secret/openstack/common/nova.identity.placement.password
+            #region_name: ""       # configmap/common/region_name
+      oslo_db:
+        auth:
+          admin: {}
+            #password: ""          # secret/openstack/common/mariadb.admin.password
+          placement:
+            username: nova
+            #password: ""          # secret/openstack/common/nova.oslo_db.nova.password
+      oslo_cache:
+        auth: {}
+          #memcache_secret_key: "" # secret/openstack/common/keystone.oslo_cache.memcache_secret_key
+    labels:
+      api: &common-labels
+        node_selector_key: openstack-control-plane
+        node_selector_value: enabled
+      job: *common-labels
+    pod:
+      replicas:
+        api: 3
+    images:
+      pull_policy: Always
+      tags:
+        placement: &img_placement docker.io/openstackhelm/placement:yoga-ubuntu_focal-20230526
+        ks_user: &img_heat docker.io/openstackhelm/heat:yoga-ubuntu_focal-20230526
+        ks_service: *img_heat
+        ks_endpoints: *img_heat
+        db_init: *img_heat
+        db_drop: *img_heat
+        db_migrate: quay.io/airshipit/porthole-mysqlclient-utility:latest-ubuntu_bionic
+        placement_db_sync: *img_placement
+        dep_check: quay.io/airshipit/kubernetes-entrypoint:v1.0.0

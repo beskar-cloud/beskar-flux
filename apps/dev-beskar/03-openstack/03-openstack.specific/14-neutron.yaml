@@ -1,0 +1,32 @@
+kind: HelmRelease
+apiVersion: helm.toolkit.fluxcd.io/v2beta1
+metadata:
+  name: neutron
+  namespace: openstack
+spec:
+  values:
+    network:
+      interface:
+        tunnel: br-data
+    conf:
+      # connect ovs bridge to physical interface
+      auto_bridge_add:
+        br-ex: bond0
+      neutron:
+        DEFAULT:
+          l3_ha: True
+          global_physnet_mtu: 9000
+          max_l3_agents_per_router: 2
+          l3_ha_network_type: vxlan
+          dhcp_agents_per_network: 2
+      plugins:
+        ml2_conf:
+          ml2_type_vxlan:
+            # kubernetes calico uses 4096
+            vni_ranges: 1:4000
+        openvswitch_agent:
+          agent:
+            tunnel_types: vxlan
+          ovs:
+            # internal openstack interface : ovs bridge accessible on hypervisors
+            bridge_mappings: provider:br-ex

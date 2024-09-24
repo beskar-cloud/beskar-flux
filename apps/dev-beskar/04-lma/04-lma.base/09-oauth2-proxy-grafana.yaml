@@ -1,0 +1,62 @@
+kind: HelmRelease
+apiVersion: helm.toolkit.fluxcd.io/v2beta1
+metadata:
+  name: oauth2-proxy-grafana
+  namespace: &ns osh-infra
+spec:
+  interval: 5m
+  targetNamespace: *ns
+  storageNamespace: *ns
+  dependsOn:
+  - name: "grafana"
+    namespace: *ns
+  chart:
+    spec:
+      chart: oauth2-proxy
+      sourceRef:
+        kind: GitRepository
+        name: custom-helm-charts
+        namespace: default
+      interval: 1m
+  valuesFrom:
+  - kind: Secret
+    name: common
+    valuesKey: oauth2-proxy-grafana.config.clientSecret
+    targetPath: config.clientSecret
+  - kind: Secret
+    name: common
+    valuesKey: oauth2-proxy-grafana.config.cookieSecret
+    targetPath: config.cookieSecret
+  values:
+    replicaCount: 1
+    namespaceOverride: null
+    nameOverride: &app oauth2-proxy-grafana
+    fullnameOverride: *app
+    config:
+      clientID: "4d0fc5592684e6649bedc480191c0f6fe8c445631e6d378139cbd6e9244b8e7a"
+      #clientSecret: ""   # secret/common/oauth2-proxy-grafana.config.clientSecret
+      #cookieSecret: ""   # secret/common/oauth2-proxy-grafana.config.cookieSecret
+    labels:
+      deployment:
+        app: oauth2-proxy-grafana-gitlab
+        name: oauth2-proxy-grafana-gitlab
+      service:
+        app: oauth2-proxy-grafana
+        name: oauth2-proxy-grafana
+      secret:
+        app: oauth2-proxy-grafana
+        name: oauth2-proxy-grafana
+      selector:
+        app: oauth2-proxy-grafana-gitlab
+    extraArgs: {provider=gitlab,
+                upstream=static://202,
+                redirect-url=https://grafana.ostrava.openstack.cloud.dev/oauth2/callback,
+                cookie-secure=true,
+                oidc-issuer-url=https://gitlab.ics.muni.cz,
+                set-xauthrequest=true,
+                cookie-samesite=none,
+                show-debug-on-error,
+                reverse-proxy,
+                session-cookie-minimal
+    }
+    extraArgLiteral: "--email-domain=*"

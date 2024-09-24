@@ -1,0 +1,30 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - 00-namespace.yaml
+  - 00-common-configmap.yaml
+  - 00-common-encryptedsecret.yaml
+  - 01-ingress-controller.yaml
+  - 02-ceph-rgw-users-encryptedsecret.yaml
+  - 02-ceph-cluster-config.yaml
+  - 03-mariadb.yaml
+  - 04-memcached.yaml
+  - 05-rabbitmq.yaml
+  - 06-esaco.yaml
+  - 06-keystone-apache-oidc-metadata-encryptedsecret.yaml
+  - 06-keystone.yaml
+  - 07-radosgw-openstack.yaml
+  - 08-ceph-client-glance-key-images-rbd-keyring-encryptedsecret.yaml
+  - 08-glance.yaml
+  - 09-ceph-client-cinder-backup-rbd-keyring-encryptedsecret.yaml
+  - 09-ceph-client-cinder-volume-rbd-keyring-encryptedsecret.yaml
+  - 09-cinder.yaml
+  - 10-openvswitch.yaml
+  - 11-libvirt.yaml
+  - 12-nova.yaml
+  - 13-placement.yaml
+  - 14-neutron.yaml
+  - 15-heat.yaml
+  - 16-barbican.yaml
+  - 17-prometheus-openstack-exporter.yaml
+  - 18-horizon.yaml

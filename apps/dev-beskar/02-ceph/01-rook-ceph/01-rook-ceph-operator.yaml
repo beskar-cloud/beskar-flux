@@ -1,0 +1,47 @@
+kind: HelmRelease
+apiVersion: helm.toolkit.fluxcd.io/v2beta1
+metadata:
+  name: rook-ceph-operator
+  namespace: &rook-ceph-namespace rook-ceph
+spec:
+  interval: 5m
+  targetNamespace: *rook-ceph-namespace
+  storageNamespace: *rook-ceph-namespace
+  chart:
+    spec:
+      chart: ./deploy/charts/rook-ceph
+      version: v1.10.13
+      sourceRef:
+        kind: GitRepository
+        name: rook-ceph
+        namespace: default
+      interval: 1h
+  values:
+    image:
+      repository: rook/ceph
+      tag: v1.10.13
+      pullPolicy: IfNotPresent
+    nodeSelector:
+      rook-ceph-operator: "true"
+    logLevel: DEBUG
+    csi:
+      enableRbdDriver: true
+      enableCephfsDriver: false
+      # set to false to disable deployment of snapshotter container in CephFS provisioner pod.
+      enableCephfsSnapshotter: false
+      # set to false to disable deployment of snapshotter container in NFS provisioner pod.
+      enableNFSSnapshotter: false
+      topology:
+        enabled: false
+        # domainLabels define which node labels to use as domains
+        # for CSI nodeplugins to advertise their domains
+        # NOTE: the value here serves as an example and needs to be
+        # updated with node labels that define domains of interest
+        # domainLabels:
+        # - kubernetes.io/hostname
+        # - topology.kubernetes.io/zone
+        # - topology.rook.io/rack
+      logLevel: 5
+    enableDiscoveryDaemon: false
+    monitoring:
+      enabled: true

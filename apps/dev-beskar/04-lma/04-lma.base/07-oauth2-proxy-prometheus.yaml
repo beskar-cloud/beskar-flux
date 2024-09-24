@@ -1,0 +1,54 @@
+kind: HelmRelease
+apiVersion: helm.toolkit.fluxcd.io/v2beta1
+metadata:
+  name: oauth2-proxy-prometheus
+  namespace: &ns osh-infra
+spec:
+  interval: 5m
+  targetNamespace: *ns
+  storageNamespace: *ns
+  dependsOn:
+  - name: "prometheus"
+    namespace: *ns
+  chart:
+    spec:
+      chart: ./helm/oauth2-proxy
+      sourceRef:
+        kind: GitRepository
+        name: oauth2-proxy
+        namespace: default
+      interval: 1m
+  valuesFrom:
+  - kind: Secret
+    name: common
+    valuesKey: oauth2-proxy-prometheus.config.clientSecret
+    targetPath: config.clientSecret
+  - kind: Secret
+    name: common
+    valuesKey: oauth2-proxy-prometheus.config.cookieSecret
+    targetPath: config.cookieSecret
+  # https://gitlab.ics.muni.cz/cloud/g2/oauth2-proxy-manifests/-/blob/downstream/helm/oauth2-proxy/values.yaml
+  values:
+    image:
+      repository: registry.gitlab.ics.muni.cz:443/cloud/g2/container-registry/quay.io__oauth2-proxy__oauth2-proxy
+      tag: "v7.4.0"
+    namespaceOverride: null
+    nameOverride: &app oauth2-proxy-prometheus
+    fullnameOverride: *app
+    config:
+      clientID: "81edfd66344d105487a5e86e66bb8f342f77a12e7e51a2626264f754ca40c24d"
+      #clientSecret: ""   # secret/common/oauth2-proxy-prometheus.config.clientSecret
+      #cookieSecret: ""   # secret/common/oauth2-proxy-prometheus.config.cookieSecret
+    extraArgs: {provider=gitlab,
+                upstream=static://202,
+                redirect-url=https://prometheus.ostrava.openstack.cloud.dev/oauth2/callback,
+                cookie-secure=true,
+                oidc-issuer-url=https://gitlab.ics.muni.cz,
+                set-xauthrequest=true,
+                cookie-samesite=none,
+                show-debug-on-error,
+                reverse-proxy,
+                session-cookie-minimal
+    }
+    service:
+      portNumber: 4180

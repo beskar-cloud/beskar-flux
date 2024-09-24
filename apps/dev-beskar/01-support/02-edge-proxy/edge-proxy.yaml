@@ -1,0 +1,448 @@
+kind: HelmRelease
+apiVersion: helm.toolkit.fluxcd.io/v2beta1
+metadata:
+  name: edge-proxy
+  namespace: &ns edge-proxy
+spec:
+  interval: 5m
+  targetNamespace: *ns
+  storageNamespace: *ns
+  chart:
+    spec:
+      chart: edge-proxy
+      sourceRef:
+        kind: GitRepository
+        name: custom-helm-charts
+        namespace: default
+      interval: 1m
+  # https://github.com/beskar-cloud/custom-helm-charts/blob/main/edge-proxy/values.yaml
+  values:
+    deployment:
+      replicaCount: 3
+    service:
+      loadBalancerIP:
+        ip: 195.3.5.91
+      clusterIP: 10.233.45.85
+    manifests:
+      namespace: false
+      certs_secret: false # re-use existing secret
+    configuration:
+      traefik-routes.yaml: |
+        http:
+          # edge proxy L7 routes
+          routers:
+            # keystone ----------------------------------------------------------
+            http_keystone: &router_http_keystone
+              rule: "Host(`identity.ostrava.openstack.cloud.dev`)"
+              service: backend_keystone
+              entryPoints: &common-traefik-entrypoints ["secure"]
+            https_keystone:
+              <<: *router_http_keystone
+              tls: {}
+
+            # cinder ------------------------------------------------------------
+            http_cinder: &router_http_cinder
+              rule: "Host(`volume.ostrava.openstack.cloud.dev`) || Host(`volumev3.ostrava.openstack.cloud.dev`)"
+              service: backend_cinder
+              entryPoints: *common-traefik-entrypoints
+            https_cinder:
+              <<: *router_http_cinder
+              tls: {}
+
+            # nova --------------------------------------------------------------
+            http_nova: &router_http_nova
+              rule: "Host(`compute.ostrava.openstack.cloud.dev`)"
+              service: backend_nova
+              entryPoints: *common-traefik-entrypoints
+            https_nova:
+              <<: *router_http_nova
+              tls: {}
+
+            # barbican ----------------------------------------------------------
+            http_barbican: &router_http_barbican
+              rule: "Host(`secret.ostrava.openstack.cloud.dev`) || Host(`key-manager.ostrava.openstack.cloud.dev`)"
+              service: backend_barbican
+              entryPoints: *common-traefik-entrypoints
+            https_barbican:
+              <<: *router_http_barbican
+              tls: {}
+
+            # glance ------------------------------------------------------------
+            http_glance: &router_http_glance
+              rule: "Host(`image.ostrava.openstack.cloud.dev`)"
+              service: backend_glance
+              entryPoints: *common-traefik-entrypoints
+            https_glance:
+              <<: *router_http_glance
+              tls: {}
+
+            # placement ---------------------------------------------------------
+            http_placement: &router_http_placement
+              rule: "Host(`placement.ostrava.openstack.cloud.dev`)"
+              service: backend_placement
+              entryPoints: *common-traefik-entrypoints
+            https_placement:
+              <<: *router_http_placement
+              tls: {}
+
+            # heat --------------------------------------------------------------
+            http_heat: &router_http_heat
+              rule: "Host(`orchestration.ostrava.openstack.cloud.dev`)"
+              service: backend_heat
+              entryPoints: *common-traefik-entrypoints
+            https_heat:
+              <<: *router_http_heat
+              tls: {}
+
+            # neutron -----------------------------------------------------------
+            http_neutron: &router_http_neutron
+              rule: "Host(`network.ostrava.openstack.cloud.dev`)"
+              service: backend_neutron
+              entryPoints: *common-traefik-entrypoints
+            https_neutron:
+              <<: *router_http_neutron
+              tls: {}
+
+            # heat-cfn ----------------------------------------------------------
+            http_heat_cfn: &router_http_heat_cfn
+              rule: "Host(`cloudformation.ostrava.openstack.cloud.dev`)"
+              service: backend_heat_cfn
+              entryPoints: *common-traefik-entrypoints
+            https_heat_cfn:
+              <<: *router_http_heat_cfn
+              tls: {}
+
+            # swift / rados gateway ---------------------------------------------
+            http_swift_radosgw: &router_http_swift_radosgw
+              rule: "Host(`object-store.ostrava.openstack.cloud.dev`)"
+              service: backend_swift_radosgw
+              entryPoints: *common-traefik-entrypoints
+            https_swift_radosgw:
+              <<: *router_http_swift_radosgw
+              tls: {}
+
+            # horizon -----------------------------------------------------------
+            http_horizon: &router_http_horizon
+              rule: "Host(`horizon.ostrava.openstack.cloud.dev`)"
+              service: backend_horizon
+              entryPoints: *common-traefik-entrypoints
+            https_horizon:
+              <<: *router_http_horizon
+              tls: {}
+
+            # nova-novncproxy ---------------------------------------------------
+            http_novncproxy: &router_http_novncproxy
+              rule: "Host(`compute-novncproxy.ostrava.openstack.cloud.dev`)"
+              service: backend_novncproxy
+              entryPoints: *common-traefik-entrypoints
+            https_novncproxy:
+              <<: *router_http_novncproxy
+              tls: {}
+
+            # welcome-hub -------------------------------------------------------
+            http_welcome_hub: &router_http_welcome_hub
+              rule: "Host(`ostrava.openstack.cloud.dev`)"
+              service: backend_welcome_hub
+              entryPoints: *common-traefik-entrypoints
+            https_welcome_hub:
+              <<: *router_http_welcome_hub
+              tls: {}
+
+            # esaco ----------------------------------------------------------
+            http_esaco: &router_http_esaco
+              rule: "Host(`esaco.brno.openstack.cloud.dev`)"
+              service: backend_esaco
+              entryPoints: *common-traefik-entrypoints
+            https_esaco:
+              <<: *router_http_esaco
+              tls: *common-tls
+
+            # LMA / prometheus -------------------------------------------
+            http_prometheus: &router_http_prometheus
+              rule: "Host(`prometheus.ostrava.openstack.cloud.dev`) && PathPrefix(`/`)"
+              service: backend_prometheus
+              entryPoints: *common-traefik-entrypoints
+              middlewares:
+              - oauth_redirect_prometheus
+            https_prometheus:
+              <<: *router_http_prometheus
+              tls: {}
+            http_prometheus_oauth2_proxy: &router_http_prometheus_oauth2_proxy
+              rule: "Host(`prometheus.ostrava.openstack.cloud.dev`) && PathPrefix(`/oauth2/`)"
+              middlewares:
+              - auth-headers
+              service: backend_oauth2_proxy_prometheus
+            https_prometheus_oauth2_proxy:
+              <<: *router_http_prometheus_oauth2_proxy
+              tls: {}
+
+            # LMA / alertmanager -----------------------------------------
+            http_alertmanager: &router_http_alertmanager
+              rule: "Host(`alertmanager.ostrava.openstack.cloud.dev`) && PathPrefix(`/`)"
+              service: backend_alertmanager
+              entryPoints: *common-traefik-entrypoints
+              middlewares:
+              - oauth_redirect_alertmanager
+            https_alertmanager:
+              <<: *router_http_alertmanager
+              tls: {}
+            http_alertmanager_oauth2_proxy: &router_http_alertmanager_oauth2_proxy
+              rule: "Host(`alertmanager.ostrava.openstack.cloud.dev`) && PathPrefix(`/oauth2/`)"
+              middlewares:
+              - auth-headers
+              service: backend_oauth2_proxy_alertmanager
+            https_alertmanager_oauth2_proxy:
+              <<: *router_http_alertmanager_oauth2_proxy
+              tls: {}
+
+            # monitoring / grafana ----------------------------------------------
+            http_grafana: &router_http_grafana
+              rule: "Host(`grafana.ostrava.openstack.cloud.dev`) && PathPrefix(`/`)"
+              service: backend_grafana
+              entryPoints: *common-traefik-entrypoints
+              middlewares:
+              - oauth_redirect_grafana
+            https_grafana:
+              <<: *router_http_grafana
+              tls: {}
+            http_grafana_oauth2_proxy: &router_http_grafana_oauth2_proxy
+              rule: "Host(`grafana.ostrava.openstack.cloud.dev`) && PathPrefix(`/oauth2/`)"
+              middlewares:
+              - auth-headers
+              service: backend_oauth2_proxy_grafana
+            https_grafana_oauth2_proxy:
+              <<: *router_http_grafana_oauth2_proxy
+              tls: {}
+
+
+            # monitoring / pushgateway ----------------------------------------------
+            http_pushgateway: &router_http_pushgateway
+              rule: "Host(`pushgateway.ostrava.openstack.cloud.dev`) && PathPrefix(`/`)"
+              service: backend_welcome_hub
+              entryPoints: *common-traefik-entrypoints
+              middlewares:
+              - oauth-auth-redirect # redirects all unauthenticated to oauth2 signin
+            https_pushgateway:
+              <<: *router_http_pushgateway
+              tls: {}
+
+            # oauth route
+            http_services-oauth2-route: &http_services-oauth2-route
+              rule: "Host(`pushgateway.ostrava.openstack.cloud.dev`) && PathPrefix(`/oauth2/`)"
+              middlewares:
+              - auth-headers
+              service: oauth-backend
+            https_services-oauth2-route:
+              <<: *http_services-oauth2-route
+              tls: {}
+
+
+          # edge proxy backend services
+          services:
+            backend_keystone:
+              loadBalancer: &ostack-service-loadbalancer
+                passHostHeader: true
+                servers:
+                - url: "http://keystone-api.openstack.svc.cluster.local:5000"
+            backend_cinder:
+              loadBalancer:
+                <<: *ostack-service-loadbalancer
+                servers:
+                - url: "http://cinder-api.openstack.svc.cluster.local:8776"
+            backend_nova:
+              loadBalancer:
+                <<: *ostack-service-loadbalancer
+                servers:
+                - url: "http://nova-api.openstack.svc.cluster.local:8774"
+            backend_barbican:
+              loadBalancer:
+                <<: *ostack-service-loadbalancer
+                servers:
+                - url: "http://barbican-api.openstack.svc.cluster.local:9311"
+            backend_glance:
+              loadBalancer:
+                <<: *ostack-service-loadbalancer
+                servers:
+                - url: "http://glance-api.openstack.svc.cluster.local:9292"
+            backend_placement:
+              loadBalancer:
+                <<: *ostack-service-loadbalancer
+                servers:
+                - url: "http://placement-api.openstack.svc.cluster.local:8778"
+            backend_heat:
+              loadBalancer:
+                <<: *ostack-service-loadbalancer
+                servers:
+                - url: "http://heat-api.openstack.svc.cluster.local:8004"
+            backend_neutron:
+              loadBalancer:
+                <<: *ostack-service-loadbalancer
+                servers:
+                - url: "http://neutron-server.openstack.svc.cluster.local:9696"
+            backend_heat_cfn:
+              loadBalancer:
+                <<: *ostack-service-loadbalancer
+                servers:
+                - url: "http://heat-cfn.openstack.svc.cluster.local:8000"
+            backend_swift_radosgw:
+              loadBalancer:
+                <<: *ostack-service-loadbalancer
+                servers:
+                - url: "http://ceph-rgw.openstack.svc.cluster.local:8088"
+            backend_horizon:
+              loadBalancer:
+                <<: *ostack-service-loadbalancer
+                servers:
+                - url: "http://horizon-int.openstack.svc.cluster.local:80"
+            backend_novncproxy:
+              loadBalancer:
+                <<: *ostack-service-loadbalancer
+                servers:
+                - url: "http://nova-novncproxy.openstack.svc.cluster.local:6080"
+            backend_welcome_hub:
+              loadBalancer:
+                <<: *ostack-service-loadbalancer
+                servers:
+                - url: "http://welcome-hub.welcome-hub.svc.cluster.local:80"
+            backend_esaco:
+              loadBalancer:
+                <<: *ostack-service-loadbalancer
+                servers:
+                - url: "http://esaco.openstack.svc.cluster.local:80"
+
+            backend_prometheus:
+              loadBalancer:
+                <<: *ostack-service-loadbalancer
+                servers:
+                - url: "http://prom-metrics.osh-infra.svc.cluster.local:80"
+            backend_alertmanager:
+              loadBalancer:
+                <<: *ostack-service-loadbalancer
+                servers:
+                - url: "http://alerts-engine.osh-infra.svc.cluster.local:80"
+            backend_grafana:
+              loadBalancer:
+                <<: *ostack-service-loadbalancer
+                servers:
+                - url: "http://grafana-dashboard.osh-infra.svc.cluster.local:3000"
+
+            backend_oauth2_proxy_grafana:
+              loadBalancer:
+                <<: *ostack-service-loadbalancer
+                servers:
+                - url: &backend_oauth2_proxy_grafana_url "http://oauth2-proxy-grafana.osh-infra.svc.cluster.local:4180"
+            backend_oauth2_proxy_alertmanager:
+              loadBalancer:
+                <<: *ostack-service-loadbalancer
+                servers:
+                - url: &backend_oauth2_proxy_alertmanager_url "http://oauth2-proxy-alertmanager.osh-infra.svc.cluster.local:4180"
+            backend_oauth2_proxy_prometheus:
+              loadBalancer:
+                <<: *ostack-service-loadbalancer
+                servers:
+                - url: &backend_oauth2_proxy_prometheus_url "http://oauth2-proxy-prometheus.osh-infra.svc.cluster.local:4180"
+
+            oauth-backend:
+              loadBalancer:
+                <<: *ostack-service-loadbalancer
+                servers:
+                - url: &oauth-backend-url "http://oauth2-proxy-pushgateway-gitlab.monitoring.svc.cluster.local:4180"
+
+
+          middlewares:
+            auth-headers:
+              headers:
+                sslRedirect: true
+                stsSeconds: 315360000
+                browserXssFilter: true
+                contentTypeNosniff: true
+                #forceSTSHeader: true
+                #sslHost: example.com
+                #stsIncludeSubdomains: true
+                #stsPreload: true
+                frameDeny: true
+
+            oauth_redirect_grafana:
+              forwardAuth:
+                address: *backend_oauth2_proxy_grafana_url
+                trustForwardHeader: true
+                authResponseHeaders:
+                - X-Auth-Request-Access-Token
+                - X-Auth-Request-Email
+                - Authorization
+
+            oauth_redirect_alertmanager:
+              forwardAuth:
+                address: *backend_oauth2_proxy_alertmanager_url
+                trustForwardHeader: true
+                authResponseHeaders:
+                - X-Auth-Request-Access-Token
+                - Authorization
+
+            oauth_redirect_prometheus:
+              forwardAuth:
+                address: *backend_oauth2_proxy_prometheus_url
+                trustForwardHeader: true
+                authResponseHeaders:
+                - X-Auth-Request-Access-Token
+                - Authorization
+
+            oauth-auth-redirect:
+              forwardAuth:
+                address: *oauth-backend-url
+                trustForwardHeader: true
+                authResponseHeaders:
+                - X-Auth-Request-Access-Token
+                - Authorization
+
+
+
+
+        # backend certificates
+        tls:
+          certificates:
+          - certFile: /etc/traefik-certs/ostrava.openstack.cloud.dev.crt
+            keyFile: /etc/traefik-certs/ostrava.openstack.cloud.dev.key
+          - certFile: /etc/traefik-certs/wildcard.ostrava.openstack.cloud.dev.crt
+            keyFile: /etc/traefik-certs/wildcard.ostrava.openstack.cloud.dev.key
+
+      traefik.yaml: |
+        # edge-proxy bound addresses
+        entryPoints:
+          # HTTP, port 80
+          unsecure:
+            address: "0.0.0.0:80"
+            # http -> https redirect
+            http:
+              redirections:
+                entryPoint:
+                  to: secure
+                  scheme: "https"
+          # HTTPS, port 443
+          secure:
+            address: "0.0.0.0:443"
+
+        # default certificates
+        tls:
+          stores:
+            default:
+              minVersion: VersionTLS12
+              defaultCertificate:
+                certFile: /etc/traefik-certs/wildcard.ostrava.openstack.cloud.dev.crt
+                keyFile: /etc/traefik-certs/wildcard.ostrava.openstack.cloud.dev.key
+
+        # logging
+        log:
+          level: INFO
+        accessLog: {}
+
+        # internal dashboard
+        api:
+          dashboard: true
+          insecure: true
+
+        # routers + middleware + backends file configuration
+        providers:
+          file:
+            filename: /etc/traefik/traefik-routes.yaml
+            watch: true

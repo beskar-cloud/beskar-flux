@@ -1,0 +1,11 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - ./03-openstack.base
+patchesStrategicMerge:
+  - ./03-openstack.specific/03-mariadb.yaml
+  - ./03-openstack.specific/05-rabbitmq.yaml
+  - ./03-openstack.specific/07-radosgw-openstack.yaml
+  - ./03-openstack.specific/08-glance.yaml
+  - ./03-openstack.specific/12-nova.yaml
+  - ./03-openstack.specific/14-neutron.yaml
