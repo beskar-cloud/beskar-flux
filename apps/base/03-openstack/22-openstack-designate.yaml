@@ -1,0 +1,101 @@
+kind: HelmRelease
+apiVersion: helm.toolkit.fluxcd.io/v2beta1
+metadata:
+  name: designate 
+  namespace: openstack
+spec:
+  interval: 5m
+  dependsOn:
+  - name: "barbican"
+    namespace: "openstack"
+  targetNamespace: openstack
+  storageNamespace: openstack
+  install:
+    disableWait: true
+  upgrade:
+    disableWait: true
+  chart:
+    spec:
+      chart: designate
+      reconcileStrategy: Revision
+      sourceRef:
+        kind: GitRepository
+        name: openstack-helm
+        namespace: default
+      interval: 1m
+  values:
+    network:
+      api:
+        node_port:
+          enabled: true
+    images:
+      tags:
+        bootstrap: &heat-image hemsonawane/heat:latest-zed-ubuntu_focal
+        db_init: *heat-image 
+        db_drop: *heat-image
+        rabbit_init: docker.io/rabbitmq:3.9-management
+        ks_user: *heat-image
+        ks_service: *heat-image
+        ks_endpoints: *heat-image
+        dep_check: quay.io/airshipit/kubernetes-entrypoint:v1.0.0
+        designate_db_sync: &designate-image hemsonawane/designate:latest-bind-zed-ubuntu_focal
+        designate_api: *designate-image
+        designate_central: *designate-image
+        designate_mdns: *designate-image 
+        designate_worker: *designate-image 
+        designate_producer: *designate-image 
+        designate_sink: *designate-image
+      pull_policy: Always
+    endpoints:
+      identity:
+        auth:
+          admin:
+            password: 24x8zPytDZH8wuSb 
+          designate:
+            password: zv9NUntQ3L4dfjac 
+          test:
+            password: UJzMeQh6dEq5L8ZX
+      oslo_db:
+        auth:
+          admin:
+            password: hQrCbbmZQqGJbfedePek
+          designate:
+            password: BQG5Pj9HS2RMtLkv 
+      oslo_cache:
+        auth:
+          memcache_secret_key: 4hvV8Q8ZBrQbguej4jwj
+      oslo_messaging:
+        auth:
+          admin:
+            username: rabbitmq-admin
+            password: 5mOMtMEnkx4TxTwEMGqY
+          designate:
+            username: designate-rabbitmq-user
+            password: XEVSAzxrM4yqJkL3tNT5
+        statefulset:
+          replicas: 3
+          name: openstack-rabbitmq-rabbitmq
+    labels:
+      api:
+        node_selector_key: openstack-control-plane-pdns
+        node_selector_value: enabled
+      central:
+        node_selector_key: openstack-control-plane-pdns
+        node_selector_value: enabled
+      producer:
+        node_selector_key: openstack-control-plane-pdns
+        node_selector_value: enabled
+      worker:
+        node_selector_key: openstack-control-plane-pdns
+        node_selector_value: enabled
+      job:
+        node_selector_key: openstack-control-plane-pdns
+        node_selector_value: enabled
+      mdns:
+        node_selector_key: openstack-control-plane-pdns
+        node_selector_value: enabled
+      sink:
+        node_selector_key: openstack-control-plane-pdns
+        node_selector_value: enabled
+
+

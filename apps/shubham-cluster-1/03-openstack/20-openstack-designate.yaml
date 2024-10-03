@@ -1,0 +1,85 @@
+kind: HelmRelease
+apiVersion: helm.toolkit.fluxcd.io/v2beta1
+metadata:
+  name: designate 
+  namespace: openstack
+spec:
+  interval: 5m
+  dependsOn:
+  - name: "barbican"
+    namespace: "openstack"
+  targetNamespace: openstack
+  storageNamespace: openstack
+  install:
+    disableWait: true
+  upgrade:
+    disableWait: true
+  chart:
+    spec:
+      chart: designate
+      reconcileStrategy: Revision
+      sourceRef:
+        kind: GitRepository
+        name: openstack-helm
+        namespace: default
+      interval: 1m
+  values:
+    conf:
+      rndc_conf: |
+        #include "/etc/rndc.key";
+        options {
+                default-key "rndc-key";
+                default-server 192.168.101.49;
+                default-port 963;
+        };
+      rndc_key: |
+        key "rndc-key" {
+                algorithm hmac-sha256;
+                secret "XUTO6iQhAZj8gUFL1OB63EyezIvT6bfjU7Z4o24J+nM=";
+        };
+      pools: |
+        - name: default
+          description: Default Pool
+          attributes: {}
+
+          ns_records:
+            - hostname: hemant-openstack-lab-1-26074-cmp-1.
+              priority: 1
+
+          nameservers:
+            - host: 192.168.101.245
+              port: 32392
+
+          targets:
+            - type: pdns4
+              description: PowerDNS 4
+
+              masters:
+                - host: 192.168.101.245
+                  port: 32621
+
+              options:
+                host: 192.168.101.245
+                port: 32392
+                api_endpoint: http://powerdns.openstack.svc.cluster.local:8081
+                api_token: CjNUbmaLHTnWwgtPxpJRhY
+    
+      designate:
+        DEFAULT:
+          debug: true
+        service:api:
+          listen: 0.0.0.0:9001
+          auth_strategy: keystone
+          enable_api_v2: true
+          enable_api_admin: true
+          enable_host_header: true
+          enabled_extensions_v2: quotas,reports
+        keystone_authtoken:
+          auth_type: password
+          auth_version: v3
+          project_name: service
+          project_domain_name: service
+          user_domain_name: service       
+        service:worker:
+          enabled: True
+          notify: True
