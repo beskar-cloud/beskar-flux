@@ -5,4 +5,3 @@ resources:
   - 00-common-configmap.yaml
   - 00-common-encryptedsecret.yaml
   - 01-egi-accounting.yaml
-  #- 02-egi-appliances.yaml
