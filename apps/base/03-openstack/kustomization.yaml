@@ -24,3 +24,4 @@ resources:
   - 20-openstack-octavia.yaml
   - 21-openstack-powerdns.yaml
   - 22-openstack-designate.yaml
+  - 23-openstack-skyline-console.yaml  

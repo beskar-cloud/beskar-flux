@@ -20,3 +20,4 @@ patchesStrategicMerge:
   - 03-openstack/17-openstack-barbican.yaml
   - 03-openstack/19-openstack-powerdns.yaml
   - 03-openstack/20-openstack-designate.yaml
+  - 03-openstack/21-openstack-skyline-console.yaml
