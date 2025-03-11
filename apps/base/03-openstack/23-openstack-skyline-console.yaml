@@ -1,0 +1,52 @@
+kind: HelmRelease
+apiVersion: helm.toolkit.fluxcd.io/v2beta1
+metadata:
+  name: skyline-console
+  namespace: openstack
+spec:
+  interval: 10m
+  dependsOn:
+  - name: "horizon"
+    namespace: "openstack"
+  targetNamespace: openstack
+  storageNamespace: openstack
+  install:
+    disableWait: true
+  upgrade:
+    disableWait: true
+  chart:
+    spec:
+      chart: skyline-console
+      reconcileStrategy: Revision
+      sourceRef:
+        kind: GitRepository
+        name: openstack-helm
+        namespace: default
+      interval: 1m
+
+  values:
+    ingress:
+      enabled: true
+      host: skyline-console.example.ingress      
+    mysql:
+      host: "mariadb.openstack.svc.cluster.local"           
+      rootPassword: "mariadb.password" 
+      database: "skyline"     
+      user: "skyline"              
+      password: "skyline.db.password"
+    skyline_settings:
+      default:
+        debug: true
+        cafile: "/etc/ssl/certs/ca-certificates.crt"
+        prometheus_basic_auth_password: 'prometheus.user.password'
+        prometheus_basic_auth_user: 'prometheus.user'
+        prometheus_enable_basic_auth: true
+        prometheus_endpoint: ''
+        database_url: mysql://skyline:<skyline.db.password>@mariadb.openstack.svc.cluster.local:3306/skyline    
+      openstack:
+        keystone_url: https://keystone.example.services/v3
+        system_project: service
+        system_project_domain: Default
+        system_user_domain: Default
+        system_user_name: skyline
+        system_user_password: ''
