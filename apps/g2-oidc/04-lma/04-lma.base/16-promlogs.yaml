@@ -1,0 +1,68 @@
+apiVersion: helm.toolkit.fluxcd.io/v2beta1
+kind: HelmRelease
+metadata:
+  name: promlogs
+  namespace: osh-infra
+spec:
+  interval: 3m
+  chart:
+    spec:
+      chart: promlogs
+      version: "*"
+      sourceRef:
+        kind: GitRepository
+        name: custom-helm-charts
+        namespace: default
+      interval: 3m
+
+  values:
+    selfHeal: true
+    logParsing:
+      programs:
+        - name: rabbitmq
+          query: '{application="rabbitmq",component="server"}'
+          errors: true
+          warnings: true
+          patterns:
+            - name: closing-connection
+              regex: ".*error.*closing AMQP connection.*"
+            - name: boot-failed
+              regex: ".*BOOT FAILED.*"
+        - name: libvirt
+          query: '{application="libvirt"}'
+          errors: true
+          warnings: true
+        - name: nova-compute
+          query: '{application="nova",component="compute"}'
+          errors: true
+          warnings: true
+        - name: openvswitch-vswitchd
+          query: '{application="openvswitch",component="openvswitch-vswitchd"}'
+          errors: true
+          warnings: true
+        - name: openvswitch-db
+          query: '{application="openvswitch",component="openvswitch-vswitchd-db"}'
+          errors: true
+          warnings: true
+        - name: neutron-ovs-agent
+          query: '{application="neutron",component="ovs-agent"}'
+          errors: true
+          warnings: true
+        - name: neutron-l3-agent
+          query: '{application="neutron",component="l3-agent"}'
+          errors: true
+          warnings: true
+          patterns:
+            - name: rabbitmq-access-refused
+              regex: ".*amqp.exceptions.AccessRefused.*"
+        - name: neutron-dhcp-agent
+          query: '{application="neutron",component="dhcp-agent"}'
+          errors: true
+          warnings: true
+        - name: neutron-metadata-agent
+          query: '{application="neutron",component="metadata-agent"}'
+          errors: true
+          warnings: true
+          patterns:
+            - name: rabbitmq-access-refused
+              regex: ".*amqp.exceptions.AccessRefused.*"
